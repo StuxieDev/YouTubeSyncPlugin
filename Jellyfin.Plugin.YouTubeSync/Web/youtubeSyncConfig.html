@@ -1,0 +1,168 @@
+<div id="YouTubeSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/youtubeSyncConfigjs">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <div class="verticalSection">
+                <div class="sectionTitleContainer">
+                    <h2 class="sectionTitle">YouTubeSync Settings</h2>
+                </div>
+            </div>
+
+            <!-- General settings -->
+            <div class="verticalSection">
+                <h3 class="sectionTitle">General</h3>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="YtDlpPath" label="yt-dlp path" />
+                    <div class="fieldDescription">Path to the yt-dlp binary. Use <code>yt-dlp</code> if it is available on PATH.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="LibraryBasePath" label="Library folder" />
+                    <div class="fieldDescription">Folder where YouTube items are created. This must already be inside a Jellyfin library.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="JellyfinBaseUrl" label="Jellyfin address" />
+                    <div class="fieldDescription">Public or local Jellyfin address written into playback links, for example <code>https://jellyfin.example.com</code>. It must be reachable by the devices that will play these items.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="CacheMinutes" label="Remember playback links for (minutes)" min="1" max="60" />
+                    <div class="fieldDescription">How long playback links are kept before the plugin asks YouTube for fresh ones.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <select is="emby-select" id="PlaybackTarget" label="Fallback playback preference">
+                        <option value="BroadCompatibility720p">Compatibility first</option>
+                        <option value="Balanced1080p">Balanced</option>
+                        <option value="MaximumQuality">Highest single-stream quality</option>
+                    </select>
+                    <div class="fieldDescription">Used when Enhanced playback is disabled or unavailable. Compatibility first prefers simpler 720p-friendly streams, Balanced aims for a good middle ground, and Highest single-stream quality asks YouTube for the best single stream it can provide.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="VideoRetentionDays" label="Keep videos from the last (days)" min="0" />
+                    <div class="fieldDescription">Only videos published within this age window are kept in Jellyfin. Set to <code>0</code> to keep everything.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="RecentPlaylistsToKeep" label="Keep most recent playlists" min="0" />
+                    <div class="fieldDescription">For channel sources using the playlists feed, only this many of the most recent playlists are kept. Set to <code>0</code> to keep all playlists. Videos inside kept playlists are not filtered by the video retention days setting.</div>
+                </div>
+            </div>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Enhanced Playback</h3>
+
+                <div class="inputContainer">
+                    <select is="emby-select" id="AllowManagedTranscoding" label="Playback mode">
+                        <option value="false">Simple mode</option>
+                        <option value="true">Enhanced mode</option>
+                    </select>
+                    <div class="fieldDescription">Simple mode keeps setup light and works without ffmpeg. Enhanced mode uses ffmpeg to create a cleaner, more compatible playback stream and automatically falls back to Simple mode if it cannot start.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="FfmpegPath" label="ffmpeg path" />
+                    <div class="fieldDescription">Path to the ffmpeg binary used by Enhanced mode. Use <code>ffmpeg</code> if it is available on PATH.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <select is="emby-select" id="ManagedTranscodeHardwareMode" label="Video encoder">
+                        <option value="None">Software</option>
+                        <option value="Qsv">Intel Quick Sync</option>
+                        <option value="Nvenc">NVIDIA NVENC</option>
+                        <option value="Vaapi">VAAPI</option>
+                        <option value="Amf">AMD AMF</option>
+                    </select>
+                    <div class="fieldDescription">Choose how Enhanced mode encodes video. Start with Software if you are unsure, then switch to the hardware encoder that already works well on your server.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="ManagedTranscodeSessionIdleMinutes" label="Stop unused enhanced streams after (minutes)" min="1" max="30" />
+                    <div class="fieldDescription">Unused Enhanced mode streams are stopped and cleaned up automatically after this many minutes.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="MaxConcurrentManagedTranscodes" label="Concurrent enhanced streams" min="1" max="10" />
+                    <div class="fieldDescription">Maximum number of Enhanced mode playbacks at the same time. Extra playbacks automatically fall back to Simple mode.</div>
+                </div>
+            </div>
+
+            <!-- YouTube sources list -->
+            <div class="verticalSection">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h3 class="sectionTitle" style="flex:1;">Channels and Playlists</h3>
+                    <button is="emby-button" type="button" id="addSourceBtn" class="raised">&#43;&nbsp;Add Channel or Playlist</button>
+                </div>
+
+                <div id="sourcesList" class="itemsContainer"></div>
+            </div>
+
+            <!-- Save button -->
+            <div class="verticalSection">
+                <button is="emby-button" type="button" id="saveBtn" class="raised button-submit block">
+                    <span>Save</span>
+                </button>
+            </div>
+
+            <!-- Inline add / edit source form (hidden until opened) -->
+            <div id="sourceEditSection" class="verticalSection" style="display:none;">
+                <h3 id="editSourceTitle" class="sectionTitle">Add Channel or Playlist</h3>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="editSourceUrl" label="Channel or playlist link" />
+                    <div class="fieldDescription">
+                        Paste the full YouTube channel or playlist link, for example:
+                        <code>https://www.youtube.com/@ChannelName</code>,
+                        <code>https://www.youtube.com/channel/UCxxxxxx</code>, or
+                        <code>https://www.youtube.com/playlist?list=PLxxxxxx</code>.
+                        A bare channel/playlist ID is also accepted for backward compatibility.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="editSourceName" label="Name in Jellyfin" />
+                    <div class="fieldDescription">Shown in Jellyfin and used for the folder name inside your library.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <select is="emby-select" id="editSourceType" label="Content type">
+                        <option value="Channel">Channel</option>
+                        <option value="Playlist">Playlist</option>
+                    </select>
+                </div>
+
+                <div class="inputContainer" id="editSourceFeedContainer">
+                    <select is="emby-select" id="editSourceFeed" label="Channel feed">
+                        <option value="Videos">Videos</option>
+                        <option value="Playlists">Playlists</option>
+                        <option value="Shorts">Shorts</option>
+                        <option value="Streams">Live / Streams</option>
+                    </select>
+                    <div class="fieldDescription">For channel sources, choose which tab should be synced.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <select is="emby-select" id="editSourceMode" label="Show videos as">
+                        <option value="Series">Episodes in a series</option>
+                        <option value="Movies">Separate movies</option>
+                    </select>
+                    <div class="fieldDescription">Choose how this source should appear inside Jellyfin.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="editSourceDescription" label="Description (optional)" />
+                    <div class="fieldDescription">Optional text stored with this channel or playlist.</div>
+                </div>
+
+                <div style="display:flex;gap:.5em;">
+                    <button is="emby-button" type="button" id="saveSourceBtn" class="raised button-submit" style="flex:1;">Save Source</button>
+                    <button is="emby-button" type="button" id="cancelSourceBtn" class="raised" style="flex:1;">Cancel</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

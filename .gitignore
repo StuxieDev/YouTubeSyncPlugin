@@ -1,0 +1,25 @@
+## Build artifacts
+bin/
+obj/
+publish/
+
+## Zip releases (built locally)
+*.zip
+
+## dotnet user secrets
+*.user
+
+## IDE folders
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## OS files
+.DS_Store
+Thumbs.db
+
+.local/
