@@ -4,6 +4,14 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.3
+
+### Changed
+- When a sync finishes, it queues a Jellyfin library scan. Jellyfin's file watcher adds new videos straight away, but runtimes and removals are only applied by a full scan. Without one, new videos had no length, and apps like pseudo-TV schedulers didn't see them until Jellyfin's own scan ran.
+
+### Fixed
+- Subtitles are saved right after each video is looked up, instead of after the whole channel. YouTube's caption links expire after about 7 hours, which a large channel's lookup phase can outlast, so its first videos could miss their subtitles.
+
 ## v1.0.2
 
 ### Added

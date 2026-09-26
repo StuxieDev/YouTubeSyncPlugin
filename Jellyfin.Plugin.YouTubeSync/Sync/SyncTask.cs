@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -14,12 +15,14 @@ namespace Jellyfin.Plugin.YouTubeSync.Sync;
 public class SyncTask : IScheduledTask
 {
     private readonly SyncService _syncService;
+    private readonly ILibraryManager _libraryManager;
     private readonly ILogger<SyncTask> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="SyncTask"/> class.</summary>
-    public SyncTask(SyncService syncService, ILogger<SyncTask> logger)
+    public SyncTask(SyncService syncService, ILibraryManager libraryManager, ILogger<SyncTask> logger)
     {
         _syncService = syncService;
+        _libraryManager = libraryManager;
         _logger = logger;
     }
 
@@ -40,7 +43,12 @@ public class SyncTask : IScheduledTask
     {
         _logger.LogInformation("YouTube Sync task started.");
         await _syncService.SyncAllAsync(progress, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("YouTube Sync task completed.");
+
+        // Jellyfin's file watcher adds new videos without a full scan, but durations (RuntimePostScanTask) and
+        // removals are only applied by one. Queue it so new videos show their length, and reach apps such as
+        // pseudo-TV schedulers, without waiting for Jellyfin's own scan schedule.
+        _libraryManager.QueueLibraryScan();
+        _logger.LogInformation("YouTube Sync task completed; queued a library scan to apply the changes.");
     }
 
     /// <inheritdoc />
