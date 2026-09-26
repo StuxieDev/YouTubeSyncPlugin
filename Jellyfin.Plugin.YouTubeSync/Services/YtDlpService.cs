@@ -413,6 +413,11 @@ public class YtDlpService
             psi.ArgumentList.Add(cookiesPath);
         }
 
+        foreach (var arg in SplitArguments(Plugin.Instance?.Configuration.ExtraYtDlpArguments))
+        {
+            psi.ArgumentList.Add(arg);
+        }
+
         foreach (var arg in arguments)
         {
             psi.ArgumentList.Add(arg);
@@ -466,6 +471,49 @@ public class YtDlpService
             _logger.LogError(ex, "Failed to run yt-dlp");
             return null;
         }
+    }
+
+    /// <summary>Splits an argument string on spaces, keeping double-quoted parts (which may contain spaces) together.</summary>
+    internal static IReadOnlyList<string> SplitArguments(string? arguments)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(arguments))
+        {
+            return result;
+        }
+
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+        var hasToken = false;
+        foreach (var c in arguments)
+        {
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+                hasToken = true;
+            }
+            else if (char.IsWhiteSpace(c) && !inQuotes)
+            {
+                if (hasToken)
+                {
+                    result.Add(current.ToString());
+                    current.Clear();
+                    hasToken = false;
+                }
+            }
+            else
+            {
+                current.Append(c);
+                hasToken = true;
+            }
+        }
+
+        if (hasToken)
+        {
+            result.Add(current.ToString());
+        }
+
+        return result;
     }
 
     private static bool IsRateLimitError(string stderr)

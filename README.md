@@ -49,7 +49,18 @@ YouTube rate-limits servers that make a lot of requests, answering with HTTP 429
 - Lookups run two at a time with a pause after each (**Pause between video lookups**, default 2 seconds).
 - If YouTube starts blocking, the sync stops making requests for 30 minutes, **keeps every existing video**, and logs a warning. The next sync carries on.
 
-The first sync of a large channel can take a few hours. For a heavy library, set **YouTube cookies file** to a `cookies.txt` exported from a browser signed in to YouTube (for example with a "Get cookies.txt" browser extension). This makes blocks much rarer and also lets age-restricted videos play. The Jellyfin service user must be able to read the file. Use an account you don't mind yt-dlp using.
+The first sync of a large channel can take a few hours.
+
+**Recommended: a PO-token provider (no account, nothing expires).** YouTube's bot check mostly targets clients without a "proof of origin" token. [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) generates them:
+
+1. Run the provider next to Jellyfin:
+   `docker run -d --name bgutil-provider --init --restart unless-stopped -p 127.0.0.1:4416:4416 brainicism/bgutil-ytdlp-pot-provider`
+2. Put `bgutil-ytdlp-pot-provider.zip` from its latest release in a folder the Jellyfin user can read, e.g. `/opt/yt-dlp-plugins`.
+3. Set **Extra yt-dlp arguments** to `--plugin-dirs /opt/yt-dlp-plugins`.
+
+Check it with `yt-dlp -v --plugin-dirs /opt/yt-dlp-plugins --skip-download <video URL>`: the output should list `PO Token Providers: bgutil:http`.
+
+**Optional: cookies.** For a heavy library, set **YouTube cookies file** to a `cookies.txt` exported from a browser signed in to YouTube (for example with a "Get cookies.txt" browser extension). This makes blocks much rarer and also lets age-restricted videos play. The Jellyfin service user must be able to read the file. Use an account you don't mind yt-dlp using. Exported cookies don't last forever: YouTube rotates them in any browser that keeps the session open, so export from a private window and then close it (this usually lasts weeks to months), and re-export when blocks come back.
 
 ## Playback modes
 

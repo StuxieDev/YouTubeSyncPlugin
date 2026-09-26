@@ -60,6 +60,11 @@
                     <input is="emby-input" type="text" id="CookiesFilePath" label="YouTube cookies file (optional)" />
                     <div class="fieldDescription">Path to a Netscape-format <code>cookies.txt</code> exported from a browser signed in to YouTube. It makes "confirm you're not a bot" blocks much rarer and lets age-restricted videos play. The Jellyfin service must be able to read the file. Leave empty to not use cookies.</div>
                 </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ExtraYtDlpArguments" label="Extra yt-dlp arguments (optional)" />
+                    <div class="fieldDescription">Added to every yt-dlp call. For example <code>--plugin-dirs /path/to/yt-dlp-plugins</code> loads a PO-token provider plugin such as <code>bgutil-ytdlp-pot-provider</code>, which avoids most "confirm you're not a bot" blocks without cookies. Separate arguments with spaces, and wrap one containing spaces in double quotes.</div>
+                </div>
             </div>
 
             <div class="verticalSection">

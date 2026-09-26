@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.2
+
+### Added
+- An **Extra yt-dlp arguments** setting, added to every yt-dlp call. Use it to load yt-dlp plugins without touching the server's yt-dlp install, for example `--plugin-dirs /path/to/yt-dlp-plugins` for a PO-token provider such as `bgutil-ytdlp-pot-provider`. That avoids most of YouTube's "confirm you're not a bot" blocks without cookies. The README explains the setup.
+
 ## v1.0.1
 
 ### Added

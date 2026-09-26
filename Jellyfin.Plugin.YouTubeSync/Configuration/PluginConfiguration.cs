@@ -141,6 +141,13 @@ public class PluginConfiguration : BasePluginConfiguration
     public string CookiesFilePath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets extra arguments added to every yt-dlp call, e.g.
+    /// <c>--plugin-dirs /path/to/yt-dlp-plugins</c> to load a PO-token provider plugin.
+    /// Separate arguments with spaces; wrap an argument containing spaces in double quotes.
+    /// </summary>
+    public string ExtraYtDlpArguments { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the pause, in seconds, after each per-video lookup during a sync. Spacing requests out
     /// stops large first syncs from getting the server's IP rate-limited by YouTube.
     /// </summary>
