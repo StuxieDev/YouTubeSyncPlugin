@@ -32,6 +32,7 @@ dotnet publish $projectPath `
 Write-Host "Copying plugin files to local Jellyfin plugin directory..."
 Copy-Item (Join-Path $publishDir "Jellyfin.Plugin.YouTubeSync.dll") $pluginDir -Force
 Copy-Item $metaPath $pluginDir -Force
+Copy-Item (Join-Path $repoRoot "Jellyfin.Plugin.YouTubeSync/banner.png") $pluginDir -Force
 
 Write-Host "Plugin published to $pluginDir"
 Write-Host "Start Jellyfin with: docker compose -f local-testing/docker-compose.yml up --build"

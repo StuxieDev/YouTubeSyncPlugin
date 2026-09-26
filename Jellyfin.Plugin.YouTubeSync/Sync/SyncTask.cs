@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.YouTubeSync.Sync;
 
 /// <summary>
 /// Jellyfin scheduled task that triggers a full YouTube sync.
-/// Appears in the dashboard under Scheduled Tasks → YouTube.
+/// Appears in the dashboard under Scheduled Tasks → YouTube Sync → Sync from YouTube.
 /// </summary>
 public class SyncTask : IScheduledTask
 {
@@ -24,7 +24,7 @@ public class SyncTask : IScheduledTask
     }
 
     /// <inheritdoc />
-    public string Name => "YouTube Sync";
+    public string Name => "Sync from YouTube";
 
     /// <inheritdoc />
     public string Key => "YouTubeSync";
@@ -33,7 +33,7 @@ public class SyncTask : IScheduledTask
     public string Description => "Syncs configured YouTube channels and playlists into Jellyfin by generating .strm and .nfo files.";
 
     /// <inheritdoc />
-    public string Category => "YouTube";
+    public string Category => "YouTube Sync";
 
     /// <inheritdoc />
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)

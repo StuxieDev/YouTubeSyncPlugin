@@ -79,11 +79,18 @@ internal sealed class VideoMetadataCache
     /// <summary>
     /// Returns a copy of the cached details for a video when they are still fresh enough to reuse.
     /// </summary>
-    public VideoMetadata? TryGetFresh(string videoId, DateTime utcNow)
+    /// <param name="videoId">The YouTube video ID.</param>
+    /// <param name="utcNow">The current time.</param>
+    /// <param name="requireSubtitleCheck">
+    /// When subtitles are enabled, a video whose subtitles were never checked is treated as a miss, because
+    /// caption URLs only come with a fresh yt-dlp fetch.
+    /// </param>
+    public VideoMetadata? TryGetFresh(string videoId, DateTime utcNow, bool requireSubtitleCheck = false)
     {
         if (!_entries.TryGetValue(videoId, out var cached)
             || cached.PublishedUtc is null
-            || cached.DurationSeconds is null or <= 0)
+            || cached.DurationSeconds is null or <= 0
+            || (requireSubtitleCheck && cached.SubtitlesCheckedUtc is null))
         {
             return null;
         }
@@ -110,6 +117,26 @@ internal sealed class VideoMetadataCache
         };
     }
 
+    /// <summary>
+    /// Returns cached details regardless of age. Used while YouTube is rate-limiting, when stale details
+    /// are better than dropping a video that is still on the channel.
+    /// </summary>
+    public VideoMetadata? TryGetAny(string videoId)
+    {
+        return _entries.TryGetValue(videoId, out var cached) && cached.PublishedUtc is not null
+            ? new VideoMetadata
+            {
+                VideoId = cached.VideoId,
+                Title = cached.Title,
+                Description = cached.Description,
+                ThumbnailUrl = cached.ThumbnailUrl,
+                ChannelName = cached.ChannelName,
+                PublishedUtc = cached.PublishedUtc,
+                DurationSeconds = cached.DurationSeconds
+            }
+            : null;
+    }
+
     /// <summary>Stores freshly fetched details, saving the cache periodically so interrupted syncs keep progress.</summary>
     public async Task StoreAsync(VideoMetadata metadata, DateTime utcNow, CancellationToken cancellationToken)
     {
@@ -118,6 +145,7 @@ internal sealed class VideoMetadataCache
             return;
         }
 
+        _entries.TryGetValue(metadata.VideoId, out var previous);
         _entries[metadata.VideoId] = new CachedVideo
         {
             VideoId = metadata.VideoId,
@@ -127,12 +155,22 @@ internal sealed class VideoMetadataCache
             ChannelName = metadata.ChannelName,
             PublishedUtc = metadata.PublishedUtc,
             DurationSeconds = metadata.DurationSeconds,
-            FetchedUtc = utcNow
+            FetchedUtc = utcNow,
+            SubtitlesCheckedUtc = previous?.SubtitlesCheckedUtc
         };
 
         if (Interlocked.Increment(ref _unsavedChanges) % SaveEveryNewEntries == 0)
         {
             await SaveAsync(null, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Records that a video's subtitles were fetched (or confirmed unavailable).</summary>
+    public void MarkSubtitlesChecked(string videoId, DateTime utcNow)
+    {
+        if (_entries.TryGetValue(videoId, out var cached))
+        {
+            cached.SubtitlesCheckedUtc = utcNow;
         }
     }
 
@@ -204,5 +242,7 @@ internal sealed class VideoMetadataCache
         public int? DurationSeconds { get; set; }
 
         public DateTime FetchedUtc { get; set; }
+
+        public DateTime? SubtitlesCheckedUtc { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Jellyfin.Plugin.YouTubeSync.Metadata;
 
@@ -46,4 +47,17 @@ public sealed class VideoMetadata
 
     /// <summary>Gets or sets the runtime in seconds when available.</summary>
     public int? DurationSeconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets the subtitle tracks YouTube offers for this video. Only set when the details were
+    /// fetched from yt-dlp during this sync (caption URLs expire, so they are never cached); <c>null</c> otherwise.
+    /// </summary>
+    public IReadOnlyList<SubtitleTrack>? SubtitleTracks { get; set; }
 }
+
+/// <summary>One downloadable subtitle track for a video.</summary>
+/// <param name="Language">The YouTube language code, e.g. <c>en</c>, <c>en-GB</c> or <c>en-orig</c>.</param>
+/// <param name="Url">The caption file URL (short-lived).</param>
+/// <param name="Format">The file format, <c>srt</c> or <c>vtt</c>.</param>
+/// <param name="IsAutomatic">Whether YouTube generated the track automatically.</param>
+public sealed record SubtitleTrack(string Language, string Url, string Format, bool IsAutomatic);

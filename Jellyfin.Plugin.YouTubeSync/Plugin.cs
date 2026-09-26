@@ -47,7 +47,12 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo
             {
                 Name = "youtubeSyncConfig",
-                EmbeddedResourcePath = $"{ns}.Web.youtubeSyncConfig.html"
+                EmbeddedResourcePath = $"{ns}.Web.youtubeSyncConfig.html",
+                // Adds "YouTube Sync" to the Plugins section of the admin dashboard sidebar.
+                EnableInMainMenu = true,
+                DisplayName = "YouTube Sync",
+                MenuSection = "server",
+                MenuIcon = "smart_display"
             },
             new PluginPageInfo
             {

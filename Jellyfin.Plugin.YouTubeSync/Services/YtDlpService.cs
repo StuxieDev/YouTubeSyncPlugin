@@ -24,6 +24,17 @@ public class YtDlpService
 
     private readonly ILogger<YtDlpService> _logger;
 
+    /// <summary>How long background syncing pauses after YouTube starts rate-limiting this server.</summary>
+    private static readonly TimeSpan RateLimitBackoff = TimeSpan.FromMinutes(30);
+
+    private DateTime _rateLimitedUntilUtc = DateTime.MinValue;
+
+    /// <summary>
+    /// Gets a value indicating whether YouTube recently rate-limited this server. Syncs stop making new
+    /// requests while this is set so playback, which uses the same IP, can recover.
+    /// </summary>
+    public bool IsRateLimited => DateTime.UtcNow < _rateLimitedUntilUtc;
+
     /// <summary>Initializes a new instance of the <see cref="YtDlpService"/> class.</summary>
     public YtDlpService(ILogger<YtDlpService> logger)
     {
@@ -245,8 +256,49 @@ public class YtDlpService
             ThumbnailUrl = GetBestVideoThumbnailUrl(result),
             ChannelName = GetString(result, "channel"),
             PublishedUtc = ParsePublishedDate(result),
-            DurationSeconds = durationSeconds
+            DurationSeconds = durationSeconds,
+            SubtitleTracks = ParseSubtitleTracks(result["subtitles"], isAutomatic: false)
+                .Concat(ParseSubtitleTracks(result["automatic_captions"], isAutomatic: true))
+                .ToList()
         };
+    }
+
+    /// <summary>
+    /// Reads yt-dlp's <c>subtitles</c> / <c>automatic_captions</c> maps into one track per language,
+    /// preferring SRT (YouTube's auto-caption VTT repeats every line karaoke-style) and skipping
+    /// <c>m3u8</c> entries, which are HLS playlists rather than caption files.
+    /// </summary>
+    private static IEnumerable<SubtitleTrack> ParseSubtitleTracks(JsonNode? node, bool isAutomatic)
+    {
+        if (node is not JsonObject languages)
+        {
+            yield break;
+        }
+
+        foreach (var (language, formats) in languages)
+        {
+            if (formats is not JsonArray list)
+            {
+                continue;
+            }
+
+            var candidates = list
+                .OfType<JsonObject>()
+                .Select(f => (Ext: GetString(f, "ext"), Url: GetString(f, "url"), Protocol: GetString(f, "protocol")))
+                .Where(f => !string.IsNullOrWhiteSpace(f.Url) && !f.Protocol.Contains("m3u8", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var best = candidates.FirstOrDefault(f => f.Ext == "srt");
+            if (string.IsNullOrEmpty(best.Url))
+            {
+                best = candidates.FirstOrDefault(f => f.Ext == "vtt");
+            }
+
+            if (!string.IsNullOrEmpty(best.Url))
+            {
+                yield return new SubtitleTrack(language, best.Url, best.Ext, isAutomatic);
+            }
+        }
     }
 
     /// <summary>
@@ -316,55 +368,34 @@ public class YtDlpService
 
     private async Task<JsonNode?> RunYtDlpJsonAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)
     {
-        var psi = new ProcessStartInfo
+        var output = await RunYtDlpAsync(arguments, cancellationToken).ConfigureAwait(false);
+        if (output is null)
         {
-            FileName = YtDlpPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var arg in arguments)
-        {
-            psi.ArgumentList.Add(arg);
+            return null;
         }
-
-        _logger.LogDebug("Running yt-dlp with arguments: {Arguments}", string.Join(" ", psi.ArgumentList));
-
-        using var process = new Process { StartInfo = psi };
 
         try
         {
-            process.Start();
-
-            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-            var output = await outputTask.ConfigureAwait(false);
-            var error = await errorTask.ConfigureAwait(false);
-
-            if (process.ExitCode != 0)
-            {
-                _logger.LogError(
-                    "yt-dlp exited with code {ExitCode}. Stderr: {Error}",
-                    process.ExitCode,
-                    error);
-                return null;
-            }
-
             return JsonNode.Parse(output);
         }
-        catch (Exception ex)
+        catch (System.Text.Json.JsonException ex)
         {
-            _logger.LogError(ex, "Failed to run yt-dlp");
+            _logger.LogError(ex, "yt-dlp returned invalid JSON");
             return null;
         }
     }
 
     private async Task<string?> RunYtDlpTextAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)
+    {
+        var output = await RunYtDlpAsync(arguments, cancellationToken).ConfigureAwait(false);
+        return output?.Trim();
+    }
+
+    /// <summary>
+    /// Runs yt-dlp and returns stdout, or <c>null</c> on failure. Adds the configured cookies file, and
+    /// records a rate-limit window when YouTube answers with HTTP 429 or a "confirm you're not a bot" wall.
+    /// </summary>
+    private async Task<string?> RunYtDlpAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)
     {
         var psi = new ProcessStartInfo
         {
@@ -375,6 +406,13 @@ public class YtDlpService
             CreateNoWindow = true
         };
 
+        var cookiesPath = Plugin.Instance?.Configuration.CookiesFilePath;
+        if (!string.IsNullOrWhiteSpace(cookiesPath))
+        {
+            psi.ArgumentList.Add("--cookies");
+            psi.ArgumentList.Add(cookiesPath);
+        }
+
         foreach (var arg in arguments)
         {
             psi.ArgumentList.Add(arg);
@@ -398,6 +436,18 @@ public class YtDlpService
 
             if (process.ExitCode != 0)
             {
+                if (IsRateLimitError(error))
+                {
+                    var until = DateTime.UtcNow + RateLimitBackoff;
+                    if (_rateLimitedUntilUtc < until)
+                    {
+                        _rateLimitedUntilUtc = until;
+                        _logger.LogWarning(
+                            "YouTube is rate-limiting this server (HTTP 429 / bot check). Background syncing pauses until {Until:u}. A cookies file in the plugin settings makes this much rarer.",
+                            until);
+                    }
+                }
+
                 _logger.LogError(
                     "yt-dlp exited with code {ExitCode}. Stderr: {Error}",
                     process.ExitCode,
@@ -405,13 +455,24 @@ public class YtDlpService
                 return null;
             }
 
-            return output.Trim();
+            return output;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to run yt-dlp");
             return null;
         }
+    }
+
+    private static bool IsRateLimitError(string stderr)
+    {
+        return stderr.Contains("HTTP Error 429", StringComparison.OrdinalIgnoreCase)
+            || stderr.Contains("confirm you’re not a bot", StringComparison.OrdinalIgnoreCase)
+            || stderr.Contains("confirm you're not a bot", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DescribePlaybackUrl(string playbackUrl)

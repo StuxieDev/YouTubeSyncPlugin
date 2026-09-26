@@ -22,6 +22,9 @@ namespace Jellyfin.Plugin.YouTubeSync.Sync;
 public class SyncService
 {
     private const int MaxPerSourceConcurrency = 4;
+
+    // Per-video yt-dlp lookups hit YouTube directly; keep them low so large syncs don't get the IP rate-limited.
+    private const int MaxMetadataLookupConcurrency = 2;
     private const int MinimumRetentionEntryScanCount = 25;
     private const int EstimatedUploadsPerDayForRetentionScan = 5;
 
@@ -131,6 +134,16 @@ public class SyncService
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // An empty listing almost always means yt-dlp failed (rate limit, network). Syncing it would make the
+        // cleanup step delete every video in the source, so leave the existing files alone.
+        if (entries.Count == 0)
+        {
+            _logger.LogWarning(
+                "YouTube returned no entries for source '{Name}' (the listing may have failed); leaving its existing files untouched.",
+                name);
+            return;
+        }
+
         IReadOnlyList<PlaylistSeasonDefinition> playlistSeasonDefinitions = Array.Empty<PlaylistSeasonDefinition>();
 
         if (isChannelPlaylistFeed)
@@ -163,14 +176,37 @@ public class SyncService
         var desiredSeasonDirectories = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
         var metadataProcessed = 0;
         var cacheHits = 0;
+        var keptWithoutDetails = 0;
         var metadataCache = await VideoMetadataCache.LoadAsync(sourceDir, _logger, cancellationToken).ConfigureAwait(false);
+        var existingVideoDirectories = IndexExistingVideoDirectories(sourceDir);
+        var requestDelay = TimeSpan.FromSeconds(Math.Clamp(config.SyncRequestDelaySeconds, 0, 60));
+
+        // A video that is still listed but whose details couldn't be fetched keeps its existing folder,
+        // so a failed or rate-limited lookup never deletes it in the cleanup step.
+        void KeepExistingFolders(string videoId)
+        {
+            if (!existingVideoDirectories.TryGetValue(videoId, out var dirs))
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref keptWithoutDetails);
+            foreach (var (videoDir, seasonDir) in dirs)
+            {
+                desiredVideoDirectories.TryAdd(videoDir, 0);
+                if (seasonDir is not null)
+                {
+                    desiredSeasonDirectories.TryAdd(seasonDir, 0);
+                }
+            }
+        }
 
         await Parallel.ForEachAsync(
                 entries,
                 new ParallelOptions
                 {
                     CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = MaxPerSourceConcurrency
+                    MaxDegreeOfParallelism = MaxMetadataLookupConcurrency
                 },
                 async (entry, innerCancellationToken) =>
                 {
@@ -183,11 +219,21 @@ public class SyncService
                         }
 
                         var utcNow = DateTime.UtcNow;
-                        var metadata = metadataCache.TryGetFresh(videoId, utcNow);
+                        var rateLimited = _ytDlpService.IsRateLimited;
+
+                        // While rate-limited, make no new requests: reuse any cached details, however old.
+                        var metadata = rateLimited
+                            ? metadataCache.TryGetAny(videoId)
+                            : metadataCache.TryGetFresh(videoId, utcNow, requireSubtitleCheck: config.DownloadSubtitles);
                         if (metadata is not null)
                         {
                             Interlocked.Increment(ref cacheHits);
                             NormalizeVideoMetadata(metadata, entry, videoId, name);
+                        }
+                        else if (rateLimited)
+                        {
+                            KeepExistingFolders(videoId);
+                            return;
                         }
                         else
                         {
@@ -196,7 +242,7 @@ public class SyncService
 
                             NormalizeVideoMetadata(metadata, entry, videoId, name);
 
-                            if (metadata.PublishedUtc is null)
+                            if (metadata.PublishedUtc is null && !_ytDlpService.IsRateLimited)
                             {
                                 metadata.PublishedUtc = await _ytDlpService.GetVideoPublishedDateAsync(videoId, innerCancellationToken)
                                     .ConfigureAwait(false);
@@ -207,14 +253,20 @@ public class SyncService
                             {
                                 await metadataCache.StoreAsync(metadata, utcNow, innerCancellationToken).ConfigureAwait(false);
                             }
+
+                            if (requestDelay > TimeSpan.Zero)
+                            {
+                                await Task.Delay(requestDelay, innerCancellationToken).ConfigureAwait(false);
+                            }
                         }
 
                         if (metadata.PublishedUtc is null)
                         {
-                            _logger.LogWarning(
-                                "Skipping video {VideoId} during sync for source {SourceName} because no published date could be extracted.",
+                            _logger.LogDebug(
+                                "No published date for video {VideoId} in source {SourceName}; keeping any existing files for it.",
                                 videoId,
                                 name);
+                            KeepExistingFolders(videoId);
                             return;
                         }
 
@@ -272,6 +324,15 @@ public class SyncService
             cacheHits,
             entries.Count);
 
+        if (keptWithoutDetails > 0)
+        {
+            _logger.LogWarning(
+                "Source '{Name}': couldn't get details for {Kept} listed video(s){Reason}; their existing files were kept and will be updated on a later sync.",
+                name,
+                keptWithoutDetails,
+                _ytDlpService.IsRateLimited ? " because YouTube is rate-limiting this server" : string.Empty);
+        }
+
         var retainedVideos = videos
             .OrderByDescending(v => v.PublishedUtc ?? DateTime.MinValue)
             .ThenBy(v => v.Title, StringComparer.OrdinalIgnoreCase)
@@ -286,6 +347,7 @@ public class SyncService
 
         var seasonEpisodeCounters = SyncSeasonLayout.BuildSeasonEpisodeCounters(retainedVideos, source);
         var filesWritten = 0;
+        var subtitleLanguages = SyncSubtitleHelper.ParseLanguages(config.SubtitleLanguages);
 
         await Parallel.ForEachAsync(
                 retainedVideos,
@@ -316,6 +378,17 @@ public class SyncService
                                 name,
                                 innerCancellationToken)
                             .ConfigureAwait(false);
+
+                        // Caption URLs only arrive with a fresh yt-dlp fetch; cached videos were checked on an earlier sync.
+                        if (config.DownloadSubtitles && video.SubtitleTracks is not null && !_ytDlpService.IsRateLimited)
+                        {
+                            var selected = SyncSubtitleHelper.SelectTracks(video.SubtitleTracks, subtitleLanguages, config.IncludeAutoGeneratedSubtitles);
+                            var baseName = SyncSeasonLayout.SanitizeFileName(string.IsNullOrEmpty(video.Title) ? video.VideoId : video.Title);
+                            if (await SyncSubtitleHelper.SaveAsync(_logger, videoDir, baseName, selected, innerCancellationToken).ConfigureAwait(false))
+                            {
+                                metadataCache.MarkSubtitlesChecked(video.VideoId, DateTime.UtcNow);
+                            }
+                        }
                     }
                     finally
                     {
@@ -332,6 +405,9 @@ public class SyncService
                     }
                 })
             .ConfigureAwait(false);
+
+        // Persist the subtitle-checked marks recorded while writing files.
+        await metadataCache.SaveAsync(null, cancellationToken).ConfigureAwait(false);
 
         CleanupObsoleteContent(
             sourceDir,
@@ -695,6 +771,60 @@ public class SyncService
         return seasonVideos[0].PublishedUtc is DateTime publishedUtc
             ? publishedUtc.Year.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : seasonFolderName;
+    }
+
+    /// <summary>
+    /// Maps YouTube video IDs to their existing folders (named <c>Title [videoId]</c>) in a source, at the top
+    /// level (movies) or inside a season folder. Paths are kept exactly as enumerated so they compare equal
+    /// to the ones <see cref="CleanupObsoleteContent"/> enumerates.
+    /// </summary>
+    private static Dictionary<string, List<(string VideoDir, string? SeasonDir)>> IndexExistingVideoDirectories(string sourceDir)
+    {
+        var index = new Dictionary<string, List<(string, string?)>>(StringComparer.Ordinal);
+        if (!Directory.Exists(sourceDir))
+        {
+            return index;
+        }
+
+        void Add(string dir, string? seasonDir)
+        {
+            var name = Path.GetFileName(dir);
+            var open = name.LastIndexOf('[');
+            if (open < 0 || !name.EndsWith(']'))
+            {
+                return;
+            }
+
+            var id = name[(open + 1)..^1];
+            if (id.Length == 0)
+            {
+                return;
+            }
+
+            if (!index.TryGetValue(id, out var list))
+            {
+                index[id] = list = new List<(string, string?)>();
+            }
+
+            list.Add((dir, seasonDir));
+        }
+
+        foreach (var dir in Directory.EnumerateDirectories(sourceDir))
+        {
+            if (Path.GetFileName(dir).StartsWith("Season ", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var child in Directory.EnumerateDirectories(dir))
+                {
+                    Add(child, dir);
+                }
+            }
+            else
+            {
+                Add(dir, null);
+            }
+        }
+
+        return index;
     }
 
     private void CleanupObsoleteContent(

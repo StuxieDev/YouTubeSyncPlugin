@@ -4,6 +4,24 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1
+
+### Added
+- **YouTube subtitles.** Each video's subtitles are saved next to it as `<video>.<language>.srt`, and Jellyfin lists them as external subtitle tracks. New settings: **Download subtitles**, **Subtitle languages** (default `en`, which also matches regional variants like `en-GB`) and **Use auto-generated captions** (used when a video has no uploaded subtitles in a language). Caption links come with each video's details, so this adds no extra YouTube requests.
+- A **YouTube Sync** link to the plugin's settings in the Plugins section of the admin dashboard sidebar.
+- A banner image for the plugin, in Jellyfin's plugin catalogue and on the installed plugin's page.
+- An optional **YouTube cookies file** setting, passed to yt-dlp. A signed-in session makes YouTube's rate limiting much rarer and lets age-restricted videos play.
+- A **Pause between video lookups** setting (default 2 seconds) that spaces out per-video requests during a sync.
+
+### Changed
+- The scheduled task is now **Sync from YouTube**, in a **YouTube Sync** category. Its schedule and history carry over.
+- Per-video lookups run two at a time instead of four.
+- The repository manifest is published with each GitHub release (`releases/latest/download/manifest.json`) instead of being committed to `main` by a bot, so every commit in the repository is its author's own. Update the repository URL in Jellyfin to the new address in the README.
+
+### Fixed
+- **Syncs no longer delete videos when YouTube rate-limits the server.** Before, every video whose details couldn't be fetched was dropped, and its folder was deleted at the end of the sync. A large channel could lose most of its videos during an HTTP 429 / "confirm you're not a bot" block. Now videos that are still listed keep their existing files. When YouTube starts blocking, the sync stops making requests for 30 minutes and logs a warning, so playback, which uses the same IP, can recover.
+- A channel listing that comes back empty (usually a failed request) no longer deletes every video in that channel; the sync leaves its files alone.
+
 ## v1.0.0
 
 First release of YouTubeSync as a standalone StuxieDev project, for Jellyfin 12.x. It is based on [jellyfin-youtube-plugin](https://github.com/kingschnulli/jellyfin-youtube-plugin) by kingschnulli.
