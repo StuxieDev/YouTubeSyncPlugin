@@ -35,6 +35,11 @@ Then install **YouTubeSync** from the plugin catalogue and restart Jellyfin.
 5. Click **+ Add Channel or Playlist**, paste a YouTube URL, give it a name, and save.
 6. The **Sync from YouTube** task (under **YouTube Sync** in **Dashboard → Scheduled Tasks**) runs every 6 hours. You can also run it from there by hand.
 
+Each channel or playlist can also have a publish date range, set when you add or edit it:
+
+- **Only videos published from:** older videos aren't synced, and ones synced earlier are removed. Handy for skipping a channel's videos from years ago.
+- **Only videos published until:** newer videos aren't added, but ones already synced are kept. Set it to today to freeze a source without deleting anything.
+
 After sync, your YouTube content appears in Jellyfin organised by channel, season (year), and episode — complete with artwork and metadata.
 
 ## Subtitles

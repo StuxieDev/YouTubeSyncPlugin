@@ -69,6 +69,39 @@ public class SourceDefinition
     public string ThumbnailUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the earliest publish date to sync, as <c>yyyy-MM-dd</c> (inclusive), or empty for no limit.
+    /// Older videos are skipped, and removed if they were synced before.
+    /// </summary>
+    public string PublishedFrom { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the latest publish date to sync, as <c>yyyy-MM-dd</c> (inclusive), or empty for no limit.
+    /// Newer videos are not added, but videos that were already synced are kept, so this can freeze a source.
+    /// </summary>
+    public string PublishedUntil { get; set; } = string.Empty;
+
+    /// <summary>Gets the start of <see cref="PublishedFrom"/> in UTC, or <c>null</c> when not set or invalid.</summary>
+    public DateTime? GetPublishedFromUtc() => ParseDate(PublishedFrom);
+
+    /// <summary>
+    /// Gets the end of <see cref="PublishedUntil"/> as an exclusive UTC bound (the start of the next day),
+    /// or <c>null</c> when not set or invalid.
+    /// </summary>
+    public DateTime? GetPublishedUntilExclusiveUtc() => ParseDate(PublishedUntil)?.AddDays(1);
+
+    private static DateTime? ParseDate(string? value)
+    {
+        return DateTime.TryParseExact(
+                value?.Trim(),
+                "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var date)
+            ? date
+            : null;
+    }
+
+    /// <summary>
     /// Gets the yt-dlp-compatible URL for this source.
     /// <para>
     /// For channels the <c>/videos</c> tab is appended automatically so that only regular

@@ -177,6 +177,10 @@ public class SyncService
         var metadataProcessed = 0;
         var cacheHits = 0;
         var keptWithoutDetails = 0;
+        var beforeRange = 0;
+        var afterRange = 0;
+        var publishedFromUtc = source.GetPublishedFromUtc();
+        var publishedUntilUtc = source.GetPublishedUntilExclusiveUtc();
         var metadataCache = await VideoMetadataCache.LoadAsync(sourceDir, _logger, cancellationToken).ConfigureAwait(false);
         var existingVideoDirectories = IndexExistingVideoDirectories(sourceDir);
         var requestDelay = TimeSpan.FromSeconds(Math.Clamp(config.SyncRequestDelaySeconds, 0, 60));
@@ -184,14 +188,17 @@ public class SyncService
 
         // A video that is still listed but whose details couldn't be fetched keeps its existing folder,
         // so a failed or rate-limited lookup never deletes it in the cleanup step.
-        void KeepExistingFolders(string videoId)
+        void KeepExistingFolders(string videoId, bool countAsMissingDetails = true)
         {
             if (!existingVideoDirectories.TryGetValue(videoId, out var dirs))
             {
                 return;
             }
 
-            Interlocked.Increment(ref keptWithoutDetails);
+            if (countAsMissingDetails)
+            {
+                Interlocked.Increment(ref keptWithoutDetails);
+            }
             foreach (var (videoDir, seasonDir) in dirs)
             {
                 desiredVideoDirectories.TryAdd(videoDir, 0);
@@ -278,6 +285,22 @@ public class SyncService
                             return;
                         }
 
+                        // Per-source date range. Before "from": skipped, so a synced copy is cleaned up like an
+                        // out-of-retention video. After "until": not added, but an existing copy is kept, which lets
+                        // a source be frozen without losing what it already has.
+                        if (publishedFromUtc is DateTime fromUtc && metadata.PublishedUtc < fromUtc)
+                        {
+                            Interlocked.Increment(ref beforeRange);
+                            return;
+                        }
+
+                        if (publishedUntilUtc is DateTime untilUtc && metadata.PublishedUtc >= untilUtc)
+                        {
+                            Interlocked.Increment(ref afterRange);
+                            KeepExistingFolders(videoId, countAsMissingDetails: false);
+                            return;
+                        }
+
                         videos.Add(metadata);
 
                         var seasonFolder = SyncSeasonLayout.GetSeasonFolderName(metadata, source);
@@ -336,6 +359,17 @@ public class SyncService
             name,
             cacheHits,
             entries.Count);
+
+        if (beforeRange > 0 || afterRange > 0)
+        {
+            _logger.LogInformation(
+                "Source '{Name}': skipped {Before} video(s) published before {From} and {After} published after {Until} (existing ones after that date were kept).",
+                name,
+                beforeRange,
+                string.IsNullOrWhiteSpace(source.PublishedFrom) ? "(no start date)" : source.PublishedFrom,
+                afterRange,
+                string.IsNullOrWhiteSpace(source.PublishedUntil) ? "(no end date)" : source.PublishedUntil);
+        }
 
         if (keptWithoutDetails > 0)
         {

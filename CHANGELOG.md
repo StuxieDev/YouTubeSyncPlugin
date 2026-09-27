@@ -4,6 +4,17 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.0
+
+### Added
+- Per-source publish date range: **Only videos published from** and **Only videos published until** (both optional, inclusive) on each channel or playlist.
+  - **From:** older videos aren't synced, and ones synced earlier are removed. Use it to skip a channel's back catalogue from years ago.
+  - **Until:** newer videos aren't added, but videos already synced are kept. Set it to today to stop a source getting new videos without deleting anything.
+- The sources list shows each source's date range.
+
+### Fixed
+- Editing a channel or playlist no longer drops fields the form doesn't show, such as a custom thumbnail URL.
+
 ## v1.0.8
 
 ### Added

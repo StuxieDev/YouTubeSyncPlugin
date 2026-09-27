@@ -206,6 +206,16 @@
                 </div>
 
                 <div class="inputContainer">
+                    <input is="emby-input" type="date" id="editSourcePublishedFrom" label="Only videos published from (optional)" />
+                    <div class="fieldDescription">Videos published before this date aren't synced, and ones synced earlier are removed. Leave empty to go back as far as the other settings allow.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="date" id="editSourcePublishedUntil" label="Only videos published until (optional)" />
+                    <div class="fieldDescription">Videos published after this date aren't added. Videos already synced are kept, so setting this to today stops new videos without deleting anything. Leave empty to keep adding new uploads.</div>
+                </div>
+
+                <div class="inputContainer">
                     <input is="emby-input" type="text" id="editSourceDescription" label="Description (optional)" />
                     <div class="fieldDescription">Optional text stored with this channel or playlist.</div>
                 </div>

@@ -48,6 +48,7 @@ export default function (view) {
                 + (feed ? ' &bull; ' + escapeHtml(feed) : '')
                 + ' &bull; ' + escapeHtml(appearance) + ' &bull; '
                 + escapeHtml(s.Id)
+                + describeRange(s)
                 + '</div>'
                 + (s.Description
                     ? '<div class="fieldDescription" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
@@ -73,6 +74,14 @@ export default function (view) {
         });
     }
 
+    /** Describes a source's publish-date range for the list, e.g. " • from 2015-01-01 until 2020-12-31". */
+    function describeRange(s) {
+        const from = s.PublishedFrom || '';
+        const until = s.PublishedUntil || '';
+        if (!from && !until) return '';
+        return ' &bull; ' + escapeHtml((from ? 'from ' + from : '') + (from && until ? ' ' : '') + (until ? 'until ' + until : ''));
+    }
+
     /* ── inline add / edit form ──────────────────────────── */
 
     function openEditForm(index) {
@@ -88,6 +97,8 @@ export default function (view) {
         view.querySelector('#editSourceFeed').value = s.Feed || 'Videos';
         view.querySelector('#editSourceMode').value = s.Mode;
         view.querySelector('#editSourceDescription').value = s.Description;
+        view.querySelector('#editSourcePublishedFrom').value = s.PublishedFrom || '';
+        view.querySelector('#editSourcePublishedUntil').value = s.PublishedUntil || '';
         updateFeedVisibility();
 
         view.querySelector('#sourceEditSection').style.removeProperty('display');
@@ -191,7 +202,8 @@ export default function (view) {
         }
 
         function commitSource(name, description) {
-            const src = {
+            // Start from the existing source so fields this form doesn't show (e.g. ThumbnailUrl) survive an edit.
+            const src = Object.assign({}, editIndex >= 0 ? sources[editIndex] : {}, {
                 Id: id,
                 Name: name,
                 Type: view.querySelector('#editSourceType').value,
@@ -199,8 +211,10 @@ export default function (view) {
                     ? view.querySelector('#editSourceFeed').value
                     : 'Videos',
                 Mode: view.querySelector('#editSourceMode').value,
-                Description: description
-            };
+                Description: description,
+                PublishedFrom: publishedFrom,
+                PublishedUntil: publishedUntil
+            });
 
             if (editIndex >= 0) {
                 sources[editIndex] = src;
@@ -210,6 +224,13 @@ export default function (view) {
 
             closeEditForm();
             renderSources();
+        }
+
+        const publishedFrom = view.querySelector('#editSourcePublishedFrom').value || '';
+        const publishedUntil = view.querySelector('#editSourcePublishedUntil').value || '';
+        if (publishedFrom && publishedUntil && publishedFrom > publishedUntil) {
+            Dashboard.alert({ message: 'The "published from" date must be on or before the "published until" date.' });
+            return;
         }
 
         const name = view.querySelector('#editSourceName').value.trim();
