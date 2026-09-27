@@ -71,6 +71,14 @@
                 <h3 class="sectionTitle">Enhanced Playback</h3>
 
                 <div class="inputContainer">
+                    <select is="emby-select" id="UseYouTubeHls" label="Use YouTube's own HLS streams">
+                        <option value="true">Yes (recommended)</option>
+                        <option value="false">No</option>
+                    </select>
+                    <div class="fieldDescription">Plays YouTube's own HLS streams (up to 1080p H.264) directly. They can start anywhere in a video in a few seconds, which live-TV apps need when tuning in part-way through, and need no transcoding by this plugin. Videos without HLS streams use the playback mode below.</div>
+                </div>
+
+                <div class="inputContainer">
                     <select is="emby-select" id="AllowManagedTranscoding" label="Playback mode">
                         <option value="false">Simple mode</option>
                         <option value="true">Enhanced mode</option>

@@ -95,6 +95,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool AllowManagedTranscoding { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether playback first uses YouTube's own HLS playlists (complete and
+    /// seekable, no local transcoding). Enhanced and Simple modes are the fallback for videos without HLS formats.
+    /// </summary>
+    public bool UseYouTubeHls { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the path to the ffmpeg executable used for managed transcoding.
     /// Defaults to "ffmpeg" and expects it to be available on PATH.
     /// </summary>

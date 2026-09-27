@@ -1,6 +1,7 @@
 using System;
 using System.Net.Mime;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.YouTubeSync.Metadata;
@@ -32,6 +33,7 @@ public class YouTubeSyncController : ControllerBase
 {
     private readonly ResolveService _resolveService;
     private readonly ManagedTranscodeService _managedTranscodeService;
+    private readonly HlsPlaybackService _hlsPlaybackService;
     private readonly YtDlpService _ytDlpService;
     private readonly ILogger<YouTubeSyncController> _logger;
 
@@ -39,11 +41,13 @@ public class YouTubeSyncController : ControllerBase
     public YouTubeSyncController(
         ResolveService resolveService,
         ManagedTranscodeService managedTranscodeService,
+        HlsPlaybackService hlsPlaybackService,
         YtDlpService ytDlpService,
         ILogger<YouTubeSyncController> logger)
     {
         _resolveService = resolveService;
         _managedTranscodeService = managedTranscodeService;
+        _hlsPlaybackService = hlsPlaybackService;
         _ytDlpService = ytDlpService;
         _logger = logger;
     }
@@ -67,6 +71,16 @@ public class YouTubeSyncController : ControllerBase
         }
 
         _logger.LogInformation("Resolve request for video {VideoId}", videoId);
+
+        // Preferred: YouTube's own HLS playlists. They are complete and seekable, so a player (or Jellyfin's
+        // ffmpeg) can start anywhere in the video at once, which pseudo-TV apps rely on when tuning in mid-way.
+        // No local transcoding is needed. The managed session below always starts from 0:00.
+        if (Plugin.Instance?.Configuration.UseYouTubeHls != false
+            && await _hlsPlaybackService.GetAsync(videoId, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            _logger.LogInformation("Using YouTube HLS for video {VideoId}", videoId);
+            return LocalRedirect($"/YouTubeSync/hls/{videoId}/master.m3u8");
+        }
 
         if (Plugin.Instance?.Configuration.AllowManagedTranscoding == true)
         {
@@ -92,6 +106,34 @@ public class YouTubeSyncController : ControllerBase
         }
 
         return Redirect(url);
+    }
+
+    /// <summary>
+    /// Serves an HLS master playlist that points at YouTube's own video and audio playlists for a video, with the
+    /// video listed first so Jellyfin maps the streams correctly.
+    /// </summary>
+    /// <param name="videoId">The YouTube video ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The master playlist, or 404 when YouTube offers no suitable HLS formats.</returns>
+    [HttpGet("hls/{videoId}/master.m3u8")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetHlsMasterPlaylist(string videoId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(videoId) || videoId.Length > 32 || !videoId.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+        {
+            return BadRequest("Invalid video ID.");
+        }
+
+        var input = await _hlsPlaybackService.GetAsync(videoId, cancellationToken).ConfigureAwait(false);
+        if (input is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        return Content(input.BuildMasterPlaylist(), "application/vnd.apple.mpegurl");
     }
 
     /// <summary>

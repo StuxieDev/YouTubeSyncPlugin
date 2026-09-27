@@ -4,6 +4,14 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.6
+
+### Added
+- Playback now uses YouTube's own HLS streams first (new **Use YouTube's own HLS streams** setting, on by default). The resolve URL points Jellyfin at a small master playlist listing YouTube's H.264 video (up to 1080p) and its audio. These playlists are complete and seekable, so playback starts anywhere in a video within seconds. The plugin runs no ffmpeg for them, and the result is cached per video until shortly before YouTube's links expire. Videos without HLS streams fall back to Enhanced or Simple mode.
+
+### Fixed
+- Live-TV apps such as NostalgiaTV could stay on standby or buffer forever when tuning into a YouTube programme part-way through. Enhanced mode always transcodes from 0:00 and publishes a still-growing playlist, so Jellyfin had to wait for the transcode to reach the tune-in point. It restarted and retried every few seconds meanwhile. YouTube's HLS streams are seekable, so this no longer happens.
+
 ## v1.0.5
 
 ### Fixed

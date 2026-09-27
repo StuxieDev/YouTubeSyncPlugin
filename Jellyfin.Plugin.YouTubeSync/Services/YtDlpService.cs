@@ -155,6 +155,78 @@ public class YtDlpService
         return headers;
     }
 
+    /// <summary>
+    /// Finds YouTube's own HLS playlists for a video: the best H.264 video up to 1080p and the best audio.
+    /// Returns <c>null</c> when YouTube offers no suitable HLS formats for the video.
+    /// </summary>
+    public async Task<HlsPlaybackInput?> GetHlsPlaybackInputAsync(string videoId, CancellationToken cancellationToken)
+    {
+        var url = $"https://www.youtube.com/watch?v={videoId}";
+        var node = await RunYtDlpJsonAsync(new[] { "-J", "--no-playlist", url }, cancellationToken).ConfigureAwait(false);
+        if (node?["formats"] is not JsonArray formats)
+        {
+            return null;
+        }
+
+        var hls = formats.OfType<JsonObject>()
+            .Where(f => GetString(f, "protocol").Contains("m3u8", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(GetString(f, "url")))
+            .ToList();
+
+        static bool HasCodec(string codec) => !string.IsNullOrEmpty(codec) && codec != "none";
+
+        var video = hls
+            .Where(f => GetString(f, "vcodec").StartsWith("avc1", StringComparison.OrdinalIgnoreCase)
+                && GetPositiveInt(f["height"]) is > 0 and <= 1080)
+            .OrderByDescending(f => GetPositiveInt(f["height"]))
+            .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
+            .FirstOrDefault();
+        if (video is null)
+        {
+            _logger.LogInformation("YouTube offers no H.264 HLS video up to 1080p for {VideoId}.", videoId);
+            return null;
+        }
+
+        var videoHasAudio = HasCodec(GetString(video, "acodec"));
+
+        // YouTube's HLS audio-only formats report vcodec "none" but often leave acodec unknown (null), so an
+        // audio format is one with no video that isn't explicitly marked as having no audio.
+        var audio = videoHasAudio
+            ? null
+            : hls.Where(f => GetString(f, "vcodec") == "none" && GetString(f, "acodec") != "none")
+                .OrderByDescending(f => GetPositiveInt(f["tbr"]) ?? GetPositiveInt(f["abr"]) ?? 0)
+                .FirstOrDefault();
+        if (!videoHasAudio && audio is null)
+        {
+            _logger.LogInformation("YouTube offers no HLS audio for {VideoId}.", videoId);
+            return null;
+        }
+
+        var height = GetPositiveInt(video["height"]) ?? 1080;
+        var width = GetPositiveInt(video["width"]) ?? (int)System.Math.Round(height * 16d / 9d);
+        var videoCodecs = GetString(video, "vcodec");
+        var audioCodecs = videoHasAudio ? GetString(video, "acodec") : GetString(audio!, "acodec");
+        var videoBandwidth = (long)((GetPositiveInt(video["tbr"]) ?? 2500) * 1000L);
+        var audioBandwidth = audio is null ? 0 : (long)((GetPositiveInt(audio["tbr"]) ?? GetPositiveInt(audio["abr"]) ?? 128) * 1000L);
+
+        _logger.LogInformation(
+            "Resolved YouTube HLS for {VideoId}: {Height}p {VideoCodecs}{Audio}",
+            videoId,
+            height,
+            videoCodecs,
+            audio is null ? " (muxed audio)" : " + separate audio");
+
+        return new HlsPlaybackInput(
+            GetString(video, "url"),
+            videoCodecs,
+            videoBandwidth,
+            width,
+            height,
+            audio is null ? null : GetString(audio, "url"),
+            string.IsNullOrEmpty(audioCodecs) || audioCodecs == "none" ? "mp4a.40.2" : audioCodecs,
+            audioBandwidth);
+    }
+
     /// <summary>Gets the currently configured playback target.</summary>
     public string GetPlaybackTarget()
     {

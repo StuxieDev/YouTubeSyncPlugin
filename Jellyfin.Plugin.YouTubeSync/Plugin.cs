@@ -73,6 +73,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<SyncPlaylistFeedExpander>();
         serviceCollection.AddSingleton<SimpleResolveCache>();
         serviceCollection.AddSingleton<ManagedTranscodeService>();
+        serviceCollection.AddSingleton<HlsPlaybackService>();
         serviceCollection.AddSingleton<ResolveService>();
         serviceCollection.AddSingleton<SyncService>();
         serviceCollection.AddSingleton<IScheduledTask, SyncTask>();

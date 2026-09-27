@@ -112,6 +112,7 @@ export default function (view) {
             view.querySelector('#VideoRetentionDays').value = config.VideoRetentionDays != null ? config.VideoRetentionDays : 300;
             view.querySelector('#RecentPlaylistsToKeep').value = config.RecentPlaylistsToKeep != null ? config.RecentPlaylistsToKeep : 20;
             view.querySelector('#AllowManagedTranscoding').value = String(config.AllowManagedTranscoding === true);
+            view.querySelector('#UseYouTubeHls').value = String(config.UseYouTubeHls !== false);
             view.querySelector('#FfmpegPath').value = config.FfmpegPath || 'ffmpeg';
             view.querySelector('#ManagedTranscodeHardwareMode').value = config.ManagedTranscodeHardwareMode || 'None';
             view.querySelector('#ManagedTranscodeSessionIdleMinutes').value = config.ManagedTranscodeSessionIdleMinutes != null ? config.ManagedTranscodeSessionIdleMinutes : 2;
@@ -141,6 +142,7 @@ export default function (view) {
             VideoRetentionDays: parseInt(view.querySelector('#VideoRetentionDays').value, 10) || 0,
             RecentPlaylistsToKeep: parseInt(view.querySelector('#RecentPlaylistsToKeep').value, 10) || 0,
             AllowManagedTranscoding: view.querySelector('#AllowManagedTranscoding').value === 'true',
+            UseYouTubeHls: view.querySelector('#UseYouTubeHls').value === 'true',
             FfmpegPath: view.querySelector('#FfmpegPath').value.trim(),
             ManagedTranscodeHardwareMode: view.querySelector('#ManagedTranscodeHardwareMode').value,
             ManagedTranscodeSessionIdleMinutes: parseInt(view.querySelector('#ManagedTranscodeSessionIdleMinutes').value, 10) || 2,

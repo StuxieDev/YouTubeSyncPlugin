@@ -64,6 +64,8 @@ Check it with `yt-dlp -v --plugin-dirs /opt/yt-dlp-plugins --skip-download <vide
 
 ## Playback modes
 
+Playback first tries **YouTube's own HLS streams** (**Use YouTube's own HLS streams**, on by default). The plugin hands Jellyfin a small playlist pointing at YouTube's H.264 video (up to 1080p) and audio. These streams are complete and seekable, so playback can start anywhere in a video within seconds, which live-TV apps such as NostalgiaTV need when they tune in part-way through. Jellyfin's own transcoder does any conversion, so the plugin runs no ffmpeg. Videos without HLS streams fall back to the modes below.
+
 | Mode | What it does | Needs ffmpeg? |
 |---|---|---|
 | **Enhanced** (recommended) | Muxes YouTube's separate video and audio streams through a local ffmpeg process into HLS, up to 1080p. Falls back to Simple automatically if anything goes wrong. | Yes |
