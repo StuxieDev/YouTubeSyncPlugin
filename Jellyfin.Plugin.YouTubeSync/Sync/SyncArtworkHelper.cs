@@ -33,6 +33,12 @@ internal static class SyncArtworkHelper
             return;
         }
 
+        // A target added later (e.g. an episode thumb next to an existing poster) is copied locally, not downloaded again.
+        if (CopyFromExistingTarget(directory, baseNames))
+        {
+            return;
+        }
+
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -328,17 +334,48 @@ internal static class SyncArtworkHelper
         return true;
     }
 
-    private static bool HasArtworkVariant(string directory, string baseName)
+    private static bool HasArtworkVariant(string directory, string baseName) => FindArtworkVariant(directory, baseName) is not null;
+
+    private static string? FindArtworkVariant(string directory, string baseName)
     {
         foreach (var extension in ArtworkExtensions)
         {
             var candidatePath = Path.Combine(directory, baseName + extension);
             if (File.Exists(candidatePath))
             {
-                return true;
+                return candidatePath;
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /// <summary>
+    /// Copies an artwork file that already exists for one of the targets to the missing targets.
+    /// Returns <c>false</c> when none of the targets exist yet.
+    /// </summary>
+    private static bool CopyFromExistingTarget(string directory, IReadOnlyList<string> baseNames)
+    {
+        var existing = baseNames.Select(baseName => FindArtworkVariant(directory, baseName)).FirstOrDefault(path => path is not null);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(existing);
+        try
+        {
+            foreach (var baseName in baseNames.Where(baseName => !HasArtworkVariant(directory, baseName)))
+            {
+                File.Copy(existing, Path.Combine(directory, baseName + extension));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Fall back to downloading the missing targets.
+            return false;
+        }
+
+        return true;
     }
 }

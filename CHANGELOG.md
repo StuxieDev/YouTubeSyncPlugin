@@ -4,6 +4,17 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.2.0
+
+### Added
+- `scripts/youtube-cookies.sh` keeps the **YouTube cookies file** fresh on its own. Sign in to YouTube once in a dedicated Firefox profile (`youtube-cookies.sh login`), and a schedule (`youtube-cookies.sh install`, every 6 hours by default) keeps that session alive in a headless Firefox. It then exports the cookies, checks they're signed in and work, and swaps the file in. If a refresh fails, the old file is kept. No more exporting `cookies.txt` by hand.
+
+### Changed
+- Each yt-dlp run now gets its own temporary copy of the cookies file. yt-dlp writes cookies back to its `--cookies` file when it exits, so runs happening at the same time could overwrite each other's copy of the shared file. The configured file is now only ever read, and it can be replaced while syncing or playing.
+
+### Fixed
+- Synced episodes now have thumbnails in Jellyfin. Jellyfin only picks up an episode's image when it's named after the video file (`<video>-thumb`), so the `poster` and `folder` images next to each episode were ignored and every series episode showed no picture. The thumbnail is now also saved as `<video>-thumb`, copied from the existing poster so no extra downloads are needed. Episode NFOs no longer point at `poster.webp`, which Jellyfin logged as "not a valid URL or file path".
+
 ## v1.1.1
 
 ### Fixed

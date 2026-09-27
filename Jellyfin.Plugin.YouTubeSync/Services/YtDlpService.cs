@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -493,13 +494,70 @@ public class YtDlpService
             CreateNoWindow = true
         };
 
-        var cookiesPath = Plugin.Instance?.Configuration.CookiesFilePath;
-        if (!string.IsNullOrWhiteSpace(cookiesPath))
+        var cookiesCopy = CopyCookiesFile(Plugin.Instance?.Configuration.CookiesFilePath);
+        if (cookiesCopy is not null)
         {
             psi.ArgumentList.Add("--cookies");
-            psi.ArgumentList.Add(cookiesPath);
+            psi.ArgumentList.Add(cookiesCopy);
         }
 
+        try
+        {
+            return await RunProcessAsync(psi, arguments, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (cookiesCopy is not null)
+            {
+                TryDelete(cookiesCopy);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Copies the configured cookies file to a private temporary file for one yt-dlp run, or returns
+    /// <c>null</c> when none is configured or it can't be read.
+    /// <para>
+    /// yt-dlp writes its cookie jar back to the <c>--cookies</c> file when it exits. Several runs at once
+    /// (sync lookups plus playback) would then overwrite each other's copy of the shared file, and a
+    /// read-only file makes the write fail. Each run gets its own copy, so the configured file is only ever
+    /// read and can be replaced safely by whatever keeps it fresh (for example <c>scripts/youtube-cookies.sh</c>).
+    /// </para>
+    /// </summary>
+    private string? CopyCookiesFile(string? cookiesPath)
+    {
+        if (string.IsNullOrWhiteSpace(cookiesPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var copy = Path.Combine(Path.GetTempPath(), $"youtubesync-cookies-{Guid.NewGuid():N}.txt");
+            File.Copy(cookiesPath, copy);
+            return copy;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning("Can't read the YouTube cookies file {Path}: {Message}. Running yt-dlp without cookies.", cookiesPath, ex.Message);
+            return null;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A leftover file in the temp folder is harmless.
+        }
+    }
+
+    private async Task<string?> RunProcessAsync(ProcessStartInfo psi, IEnumerable<string> arguments, CancellationToken cancellationToken)
+    {
         foreach (var arg in SplitArguments(Plugin.Instance?.Configuration.ExtraYtDlpArguments))
         {
             psi.ArgumentList.Add(arg);

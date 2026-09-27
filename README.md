@@ -65,7 +65,16 @@ The first sync of a large channel can take a few hours.
 
 Check it with `yt-dlp -v --plugin-dirs /opt/yt-dlp-plugins --skip-download <video URL>`: the output should list `PO Token Providers: bgutil:http`.
 
-**Optional: cookies.** For a heavy library, set **YouTube cookies file** to a `cookies.txt` exported from a browser signed in to YouTube (for example with a "Get cookies.txt" browser extension). This makes blocks much rarer and also lets age-restricted videos play. The Jellyfin service user must be able to read the file. Use an account you don't mind yt-dlp using. Exported cookies don't last forever: YouTube rotates them in any browser that keeps the session open, so export from a private window and then close it (this usually lasts weeks to months), and re-export when blocks come back.
+**Optional: cookies.** Cookies from a YouTube account make blocks much rarer and let age-restricted videos play (the account must be age-verified for those). Set **YouTube cookies file** to a Netscape-format `cookies.txt` that the Jellyfin service user can read. Use an account you don't mind yt-dlp using, not your main one.
+
+A one-off export (for example with a "Get cookies.txt" browser extension) slowly stops working, because YouTube rotates session cookies inside any open browser. `scripts/youtube-cookies.sh` keeps the file fresh instead. It needs Firefox on the Jellyfin machine:
+
+1. Copy the script to a folder the Jellyfin user can read, e.g. `~/youtubesync/`.
+2. **Sign in once:** on the machine's desktop, run `./youtube-cookies.sh login`. Sign in to YouTube in the Firefox window that opens, check a video plays, then close Firefox. The first cookies file is exported straight away.
+3. **Schedule it:** `YTC_YTDLP_ARGS="--plugin-dirs /opt/yt-dlp-plugins" ./youtube-cookies.sh install` adds a cron entry that runs a refresh every 6 hours. Each refresh keeps the session alive in a headless Firefox, exports the cookies, and checks they're signed in and work before replacing the file. A failed refresh keeps the old file and is logged in `youtube-cookies.log`.
+4. Set **YouTube cookies file** to the path `install` prints (by default `youtube-cookies.txt` next to the script). The file is readable by your user's group, so add the Jellyfin user to that group or set `YTC_GROUP`.
+
+`./youtube-cookies.sh status` shows the profile, the file's age and the latest log lines. Set `YTC_TEST_VIDEO` to an age-restricted video ID to also check age-restricted playback on each refresh. See the top of the script for all settings.
 
 ## Playback modes
 

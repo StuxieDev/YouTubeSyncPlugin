@@ -528,10 +528,15 @@ public class SyncService
 
         var nfo = sourceMode == SourceMode.Movies
             ? SyncNfoBuilder.BuildMovieVideoNfo(video, sourceName, thumbFileName)
-            : SyncNfoBuilder.BuildEpisodeNfo(video, sourceName, seasonNumber, episodeNumber, thumbFileName);
+            : SyncNfoBuilder.BuildEpisodeNfo(video, sourceName, seasonNumber, episodeNumber, string.Empty);
         await WriteTextFileIfChangedAsync(nfoPath, nfo, cancellationToken).ConfigureAwait(false);
 
-        await SyncArtworkHelper.DownloadArtworkAsync(_logger, video.ThumbnailUrl, videoDir, new[] { "folder", "poster" }, cancellationToken)
+        // Jellyfin only picks up an episode's image when it is named after the video file ("<name>-thumb");
+        // folder/poster images in the episode's folder are ignored for episodes.
+        var artworkNames = sourceMode == SourceMode.Movies
+            ? new[] { "folder", "poster" }
+            : new[] { "folder", "poster", $"{safeName}-thumb" };
+        await SyncArtworkHelper.DownloadArtworkAsync(_logger, video.ThumbnailUrl, videoDir, artworkNames, cancellationToken)
             .ConfigureAwait(false);
     }
 
