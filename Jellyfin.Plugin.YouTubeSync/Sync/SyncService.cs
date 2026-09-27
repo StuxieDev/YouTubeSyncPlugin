@@ -145,11 +145,12 @@ public class SyncService
         }
 
         IReadOnlyList<PlaylistSeasonDefinition> playlistSeasonDefinitions = Array.Empty<PlaylistSeasonDefinition>();
+        var expansionComplete = true;
 
         if (isChannelPlaylistFeed)
         {
             playlistSeasonDefinitions = _playlistFeedExpander.BuildSeasonDefinitions(entries);
-            entries = await _playlistFeedExpander.ExpandAsync(entries, playlistSeasonDefinitions, playlistVideoLimit, cancellationToken)
+            (entries, expansionComplete) = await _playlistFeedExpander.ExpandAsync(entries, playlistSeasonDefinitions, playlistVideoLimit, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -414,6 +415,17 @@ public class SyncService
                         var seasonNumber = SyncSeasonLayout.GetSeasonNumber(video, source);
                         var episodeNumber = SyncSeasonLayout.GetEpisodeNumber(video, seasonEpisodeCounters, source);
 
+                        // A video that moved to another folder (new title or season layout) brings its subtitles
+                        // and artwork along; cached videos wouldn't otherwise get their subtitles again.
+                        CarryOverFilesFromOldFolders(video, videoDir, existingVideoDirectories);
+
+                        // A cached video with no folder yet (new to this source, or back after a date filter removed it)
+                        // has no subtitle files and no caption links this run, so have the next sync fetch them.
+                        if (config.DownloadSubtitles && video.SubtitleTracks is null && !existingVideoDirectories.ContainsKey(video.VideoId))
+                        {
+                            metadataCache.ClearSubtitlesChecked(video.VideoId);
+                        }
+
                         await WriteVideoFilesAsync(
                                 video,
                                 source.Mode,
@@ -443,6 +455,14 @@ public class SyncService
 
         // Persist the subtitle-checked marks recorded while writing files.
         await metadataCache.SaveAsync(null, cancellationToken).ConfigureAwait(false);
+
+        if (!expansionComplete)
+        {
+            // Some playlists weren't listed, so their videos look "removed"; deleting now would lose them.
+            _logger.LogWarning("Source '{Name}': skipped removing old videos because some playlists couldn't be listed.", name);
+            _logger.LogInformation("Completed sync for source '{Name}'", name);
+            return;
+        }
 
         CleanupObsoleteContent(
             sourceDir,
@@ -806,6 +826,61 @@ public class SyncService
         return seasonVideos[0].PublishedUtc is DateTime publishedUtc
             ? publishedUtc.Year.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : seasonFolderName;
+    }
+
+    /// <summary>
+    /// Copies subtitles and artwork into a video's folder from its previous folders when the folder is new or
+    /// missing them. Only files that don't exist yet are copied; <c>.strm</c>/<c>.nfo</c> are always rewritten.
+    /// </summary>
+    private void CarryOverFilesFromOldFolders(
+        VideoMetadata video,
+        string videoDir,
+        Dictionary<string, List<(string VideoDir, string? SeasonDir)>> existingVideoDirectories)
+    {
+        var videoId = video.VideoId;
+        if (!existingVideoDirectories.TryGetValue(videoId, out var previous))
+        {
+            return;
+        }
+
+        // Subtitles are named after the video file, so rename them if the title (and file name) changed.
+        var newBase = SyncSeasonLayout.SanitizeFileName(string.IsNullOrEmpty(video.Title) ? videoId : video.Title);
+
+        foreach (var (oldDir, _) in previous)
+        {
+            if (string.Equals(Path.GetFullPath(oldDir), Path.GetFullPath(videoDir), StringComparison.OrdinalIgnoreCase)
+                || !Directory.Exists(oldDir))
+            {
+                continue;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(videoDir);
+                var oldStrm = Directory.EnumerateFiles(oldDir, "*.strm").FirstOrDefault();
+                var oldBase = oldStrm is null ? newBase : Path.GetFileNameWithoutExtension(oldStrm);
+                foreach (var file in Directory.EnumerateFiles(oldDir))
+                {
+                    var fileName = Path.GetFileName(file);
+                    var isSubtitle = fileName.EndsWith(".srt", StringComparison.OrdinalIgnoreCase)
+                        || fileName.EndsWith(".vtt", StringComparison.OrdinalIgnoreCase);
+                    var isArtwork = fileName.StartsWith("poster.", StringComparison.OrdinalIgnoreCase)
+                        || fileName.StartsWith("folder.", StringComparison.OrdinalIgnoreCase);
+                    var targetName = isSubtitle && fileName.StartsWith(oldBase + ".", StringComparison.Ordinal)
+                        ? newBase + fileName[oldBase.Length..]
+                        : fileName;
+                    var target = Path.Combine(videoDir, targetName);
+                    if ((isSubtitle || isArtwork) && !File.Exists(target))
+                    {
+                        File.Copy(file, target);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogDebug(ex, "Couldn't copy files for video {VideoId} from {OldDir}", videoId, oldDir);
+            }
+        }
     }
 
     /// <summary>

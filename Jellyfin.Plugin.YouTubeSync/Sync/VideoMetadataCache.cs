@@ -180,6 +180,15 @@ internal sealed class VideoMetadataCache
         }
     }
 
+    /// <summary>Forgets that a video's subtitles were checked, so the next sync fetches its details (and captions) again.</summary>
+    public void ClearSubtitlesChecked(string videoId)
+    {
+        if (_entries.TryGetValue(videoId, out var cached))
+        {
+            cached.SubtitlesCheckedUtc = null;
+        }
+    }
+
     /// <summary>
     /// Writes the cache to disk. When <paramref name="keepVideoIds"/> is given, entries for videos that are no
     /// longer in the source are dropped first.

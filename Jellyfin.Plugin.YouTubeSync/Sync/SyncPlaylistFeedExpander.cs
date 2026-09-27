@@ -45,7 +45,12 @@ public sealed class SyncPlaylistFeedExpander
         return definitions;
     }
 
-    internal async Task<IReadOnlyList<JsonNode>> ExpandAsync(
+    /// <summary>
+    /// Lists every selected playlist's videos. <c>Complete</c> is <c>false</c> when a playlist couldn't be listed
+    /// (failed request or YouTube rate limiting). The caller must then not delete anything, because the videos
+    /// of the missing playlists simply aren't in the result.
+    /// </summary>
+    internal async Task<(IReadOnlyList<JsonNode> Entries, bool Complete)> ExpandAsync(
         IReadOnlyList<JsonNode> playlistEntries,
         IReadOnlyList<PlaylistSeasonDefinition> playlistSeasonDefinitions,
         int maxPlaylistEntryScanCount,
@@ -53,6 +58,9 @@ public sealed class SyncPlaylistFeedExpander
     {
         var expandedEntries = new List<JsonNode>();
         var discoveredPlaylists = 0;
+        var failedPlaylists = 0;
+        var delaySeconds = Plugin.Instance?.Configuration.SyncRequestDelaySeconds ?? 2;
+        var requestDelay = TimeSpan.FromSeconds(Math.Clamp(delaySeconds, 0, 60));
         var seasonLookup = playlistSeasonDefinitions.ToDictionary(definition => definition.PlaylistId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var playlistEntry in playlistEntries)
@@ -71,6 +79,12 @@ public sealed class SyncPlaylistFeedExpander
             }
 
             discoveredPlaylists++;
+            if (_ytDlpService.IsRateLimited)
+            {
+                failedPlaylists++;
+                continue;
+            }
+
             var playlistInfo = await _ytDlpService.GetSourceInfoAsync(playlistUrl, cancellationToken).ConfigureAwait(false);
             var playlistThumbnailUrl = playlistInfo?.ThumbnailUrl ?? string.Empty;
             var playlistPosterUrl = string.IsNullOrWhiteSpace(playlistInfo?.PosterUrl)
@@ -79,6 +93,16 @@ public sealed class SyncPlaylistFeedExpander
             var playlistVideos = await _ytDlpService
                 .GetPlaylistEntriesAsync(playlistUrl, 0, maxPlaylistEntryScanCount, cancellationToken)
                 .ConfigureAwait(false);
+            if (playlistVideos.Count == 0)
+            {
+                // An empty listing is almost always a failed request, not an emptied playlist.
+                failedPlaylists++;
+            }
+
+            if (requestDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(requestDelay, cancellationToken).ConfigureAwait(false);
+            }
 
             for (var index = 0; index < playlistVideos.Count; index++)
             {
@@ -107,7 +131,16 @@ public sealed class SyncPlaylistFeedExpander
             expandedEntries.Count,
             expandedEntries.Count == 1 ? "y" : "ies");
 
-        return expandedEntries;
+        if (failedPlaylists > 0)
+        {
+            _logger.LogWarning(
+                "{Failed} of {Total} playlist(s) couldn't be listed{Reason}; existing files are kept and nothing is removed this sync.",
+                failedPlaylists,
+                discoveredPlaylists,
+                _ytDlpService.IsRateLimited ? " because YouTube is rate-limiting this server" : string.Empty);
+        }
+
+        return (expandedEntries, failedPlaylists == 0);
     }
 
     private static void AttachPlaylistMetadata(

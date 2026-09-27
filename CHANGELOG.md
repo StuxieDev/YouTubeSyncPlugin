@@ -4,6 +4,13 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.1
+
+### Fixed
+- Channels synced by playlist no longer lose videos when a playlist can't be listed. Before, a failed or rate-limited playlist request left that playlist's videos out, and the sync then deleted them. Playlists are now listed with the **Pause between video lookups** delay between them, listing stops while YouTube is rate-limiting, and nothing is removed from a sync where any playlist couldn't be listed.
+- A video that moves to a new folder (a changed title, or switching a channel between year and playlist seasons) keeps its subtitles and artwork: they're copied from the old folder, and renamed if the title changed. Before, cached videos lost their subtitles when their folder moved.
+- A cached video whose folder is recreated (for example after widening a date range) gets its subtitles again on the next sync, instead of never.
+
 ## v1.1.0
 
 ### Added
