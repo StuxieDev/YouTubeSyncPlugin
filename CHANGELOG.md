@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.7
+
+### Fixed
+- Heavy buffering when a client asked for "original" quality. Synced videos' stream details had no bitrate, so Jellyfin re-encoded every YouTube stream at the client's maximum (40 Mbit/s for NostalgiaTV), about ten times YouTube's own bitrate. The details now include a typical YouTube bitrate for the resolution (for example 6 Mbit/s at 1080p), the H.264 level and BT.709 colour. With these, Jellyfin copies the video untouched when the client supports H.264, so there's no GPU encode and a fraction of the bandwidth, and caps any transcode it still needs at that bitrate. Stream details written by earlier versions are upgraded on the next library scan.
+
 ## v1.0.6
 
 ### Added

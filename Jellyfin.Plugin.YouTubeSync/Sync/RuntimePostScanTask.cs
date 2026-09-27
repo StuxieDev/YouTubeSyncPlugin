@@ -31,6 +31,10 @@ public class RuntimePostScanTask : ILibraryPostScanTask
 {
     private const int DefaultWidth = 1920;
     private const int DefaultHeight = 1080;
+    private const int AudioBitrate = 128_000;
+
+    // Title on the streams this plugin writes, so later scans can tell them from probed ones.
+    private const string StreamMarker = "YouTubeSync";
 
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager _mediaSourceManager;
@@ -135,30 +139,59 @@ public class RuntimePostScanTask : ILibraryPostScanTask
     }
 
     /// <summary>
-    /// Adds an H.264 video stream and an AAC stereo audio stream when the item has no video stream, keeping any
-    /// existing streams (such as external subtitles) and their indexes.
+    /// Gives the item an H.264 video stream and an AAC stereo audio stream when it has no probed video stream,
+    /// keeping other streams (such as external subtitles). Streams this plugin added earlier are replaced when
+    /// they are out of date. Returns <c>true</c> when the streams changed.
+    /// <para>
+    /// The bitrate matters: Jellyfin caps a transcode at the source bitrate and only copies video (no re-encode)
+    /// when the source bitrate is known and within the request. Without it, a client asking for "original"
+    /// quality (e.g. 40 Mbit/s) got a full re-encode at that rate, about ten times YouTube's own bitrate.
+    /// </para>
     /// </summary>
     private bool AddStreamsIfMissing(BaseItem item, int width, int height, CancellationToken cancellationToken)
     {
         var existing = _mediaSourceManager.GetMediaStreams(item.Id);
-        if (existing.Any(s => s.Type == MediaStreamType.Video))
+        var video = existing.FirstOrDefault(s => s.Type == MediaStreamType.Video);
+
+        // A video stream without a bitrate or with our marker is one this plugin wrote; anything else was probed.
+        var ours = video is not null && (string.Equals(video.Title, StreamMarker, StringComparison.Ordinal) || video.BitRate is null);
+        if (video is not null && !ours)
         {
             return false;
         }
 
-        var next = existing.Count == 0 ? 0 : existing.Max(s => s.Index) + 1;
-        var streams = existing.ToList();
+        var bitrate = EstimateYouTubeBitrate(height);
+        if (video is not null
+            && video.BitRate == bitrate
+            && video.Width == width
+            && video.Height == height
+            && video.Level.HasValue)
+        {
+            return false;
+        }
+
+        // Drop earlier plugin-written video/audio streams; keep external streams such as subtitles.
+        var streams = existing
+            .Where(s => s.IsExternal || (s.Type != MediaStreamType.Video && s.Type != MediaStreamType.Audio))
+            .ToList();
+        var next = streams.Count == 0 ? 0 : streams.Max(s => s.Index) + 1;
         streams.Add(new MediaStream
         {
             Type = MediaStreamType.Video,
             Index = next,
+            Title = StreamMarker,
             Codec = "h264",
             Profile = "High",
+            Level = height > 720 ? 42 : 31,
             IsAVC = true,
             Width = width,
             Height = height,
+            BitRate = bitrate,
             PixelFormat = "yuv420p",
             BitDepth = 8,
+            ColorPrimaries = "bt709",
+            ColorTransfer = "bt709",
+            ColorSpace = "bt709",
             IsInterlaced = false,
             IsDefault = true
         });
@@ -166,17 +199,36 @@ public class RuntimePostScanTask : ILibraryPostScanTask
         {
             Type = MediaStreamType.Audio,
             Index = next + 1,
+            Title = StreamMarker,
             Codec = "aac",
             Channels = 2,
             ChannelLayout = "stereo",
             SampleRate = 48000,
-            BitRate = 192000,
+            BitRate = AudioBitrate,
             IsDefault = true
         });
 
         _mediaStreamRepository.SaveMediaStreams(item.Id, streams, cancellationToken);
+        if (item is Video videoItem)
+        {
+            videoItem.TotalBitrate = bitrate + AudioBitrate;
+        }
+
         return true;
     }
+
+    /// <summary>
+    /// Typical bitrate of YouTube's H.264 streams at a given height. It is a ceiling for Jellyfin rather than
+    /// an exact figure: close enough to keep transcodes small, and high enough not to starve them.
+    /// </summary>
+    internal static int EstimateYouTubeBitrate(int height) => height switch
+    {
+        >= 1080 => 6_000_000,
+        >= 720 => 3_500_000,
+        >= 480 => 1_500_000,
+        >= 360 => 1_000_000,
+        _ => 600_000
+    };
 
     /// <summary>
     /// Reads the duration and output size from an NFO: exact <c>durationinseconds</c> when present, else
