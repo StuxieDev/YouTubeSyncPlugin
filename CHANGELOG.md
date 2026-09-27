@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.8
+
+### Added
+- A **Burn in subtitles for these clients** setting (default `nostalgiatv-docker`). Since Jellyfin 12, a video stream request that selects a subtitle but doesn't say how to deliver it gets `External` delivery, meaning the player must load the subtitle file itself. Players that only play the video, such as the NostalgiaTV pseudo-TV app, then showed no subtitles for any video. For the listed device IDs, the plugin adds `SubtitleMethod=Encode` to those requests so Jellyfin burns the chosen subtitles into the picture. This applies to every video on the server, and other clients are unaffected. Leave the setting empty to turn it off.
+
 ## v1.0.7
 
 ### Fixed

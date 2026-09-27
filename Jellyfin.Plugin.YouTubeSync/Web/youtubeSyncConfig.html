@@ -136,6 +136,11 @@
                     </select>
                     <div class="fieldDescription">YouTube's automatic captions cover most videos but can contain mistakes.</div>
                 </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="BurnInSubtitleDeviceIds" label="Burn in subtitles for these clients" />
+                    <div class="fieldDescription">Comma-separated device IDs. When one of these clients turns subtitles on, Jellyfin burns them into the picture instead of expecting the player to load them separately. Needed for NostalgiaTV (<code>nostalgiatv-docker</code>), which otherwise shows no subtitles on Jellyfin 12. Applies to all videos on the server, not just YouTube. Leave empty to turn it off.</div>
+                </div>
             </div>
 
             <!-- YouTube sources list -->

@@ -154,6 +154,14 @@ public class PluginConfiguration : BasePluginConfiguration
     public string ExtraYtDlpArguments { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the comma-separated device IDs of clients whose selected subtitles Jellyfin should burn into
+    /// the video. Jellyfin 12 delivers subtitles separately unless a client asks otherwise, and players that only
+    /// play the video (such as the NostalgiaTV pseudo-TV app, device ID <c>nostalgiatv-docker</c>) then show none.
+    /// Applies to all of the server's videos, not just synced ones. Empty turns it off.
+    /// </summary>
+    public string BurnInSubtitleDeviceIds { get; set; } = "nostalgiatv-docker";
+
+    /// <summary>
     /// Gets or sets the pause, in seconds, after each per-video lookup during a sync. Spacing requests out
     /// stops large first syncs from getting the server's IP rate-limited by YouTube.
     /// </summary>

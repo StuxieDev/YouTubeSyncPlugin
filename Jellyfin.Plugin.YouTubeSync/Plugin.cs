@@ -7,10 +7,12 @@ using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Tasks;
+using Jellyfin.Plugin.YouTubeSync.Compatibility;
 using Jellyfin.Plugin.YouTubeSync.Configuration;
 using Jellyfin.Plugin.YouTubeSync.Playback;
 using Jellyfin.Plugin.YouTubeSync.Services;
 using Jellyfin.Plugin.YouTubeSync.Sync;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.YouTubeSync;
@@ -77,5 +79,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ResolveService>();
         serviceCollection.AddSingleton<SyncService>();
         serviceCollection.AddSingleton<IScheduledTask, SyncTask>();
+        serviceCollection.AddTransient<IStartupFilter, SubtitleBurnInStartupFilter>();
     }
 }
