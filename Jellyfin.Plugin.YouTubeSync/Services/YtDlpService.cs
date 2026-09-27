@@ -163,7 +163,13 @@ public class YtDlpService
     public async Task<HlsPlaybackInput?> GetHlsPlaybackInputAsync(string videoId, CancellationToken cancellationToken)
     {
         var url = $"https://www.youtube.com/watch?v={videoId}";
-        var node = await RunYtDlpJsonAsync(new[] { "-J", "--no-playlist", url }, cancellationToken).ConfigureAwait(false);
+
+        // With a cookies file, yt-dlp's default YouTube clients return no HLS formats at all, so every video
+        // fell back to a managed transcode. The web_safari client still offers HLS when signed in.
+        var node = await RunYtDlpJsonAsync(
+                new[] { "-J", "--no-playlist", "--extractor-args", "youtube:player_client=default,web_safari", url },
+                cancellationToken)
+            .ConfigureAwait(false);
         if (node?["formats"] is not JsonArray formats)
         {
             return null;

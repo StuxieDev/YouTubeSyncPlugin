@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.2.1
+
+### Fixed
+- With a cookies file set, videos no longer lose YouTube's own HLS playback. Signed in, yt-dlp's default YouTube clients return no HLS formats, so every video fell back to a managed transcode (slower to start, and harder to seek). The HLS lookup now also asks the `web_safari` client, which still offers H.264 HLS up to 1080p when signed in, including for age-restricted videos.
+
 ## v1.2.0
 
 ### Added
