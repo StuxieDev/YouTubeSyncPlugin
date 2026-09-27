@@ -20,6 +20,9 @@ public sealed class ManagedTranscodeService : IDisposable
     private const string PlaylistFileName = "index.m3u8";
     private static readonly TimeSpan UnclaimedSessionTimeout = TimeSpan.FromSeconds(30);
 
+    // A session no client has fetched from for this long may be stopped to make room for a new stream.
+    private static readonly TimeSpan StaleSessionAge = TimeSpan.FromSeconds(15);
+
     private readonly ConcurrentDictionary<string, ManagedTranscodeSession> _sessions = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _sessionCreateGate = new(1, 1);
     private readonly YtDlpService _ytDlpService;
@@ -61,13 +64,13 @@ public sealed class ManagedTranscodeService : IDisposable
                 return $"/YouTubeSync/session/{existingSession.SessionId}/{PlaylistFileName}";
             }
 
-            var activeSessions = _sessions.Count(static pair => !pair.Value.HasExited);
-            if (activeSessions >= Math.Max(1, config.MaxConcurrentManagedTranscodes))
+            var limit = Math.Max(1, config.MaxConcurrentManagedTranscodes);
+            if (!FreeSessionSlot(limit))
             {
                 _logger.LogWarning(
-                    "Managed transcoding skipped for {VideoId}: active session limit {Limit} reached.",
+                    "Managed transcoding skipped for {VideoId}: all {Limit} enhanced streams are in use.",
                     videoId,
-                    config.MaxConcurrentManagedTranscodes);
+                    limit);
                 return null;
             }
 
@@ -128,6 +131,43 @@ public sealed class ManagedTranscodeService : IDisposable
         finally
         {
             _sessionCreateGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Makes room for a new session when the concurrent limit is reached, by stopping the least recently used
+    /// session that no client has fetched from for <see cref="StaleSessionAge"/>. A player that is still
+    /// watching fetches a segment every few seconds, so this only reclaims streams that were abandoned
+    /// (for example after a channel change), which would otherwise hold a slot until the idle timeout.
+    /// </summary>
+    /// <returns><c>true</c> if a new session can start.</returns>
+    private bool FreeSessionSlot(int limit)
+    {
+        while (true)
+        {
+            // Sessions whose ffmpeg already finished cost no CPU, so they don't count against the limit.
+            var running = _sessions.Values.Where(static s => !s.HasExited).ToList();
+            if (running.Count < limit)
+            {
+                return true;
+            }
+
+            var cutoff = DateTime.UtcNow - StaleSessionAge;
+            var stale = running
+                .Where(s => s.LastAccessUtc < cutoff)
+                .OrderBy(s => s.LastAccessUtc)
+                .FirstOrDefault();
+            if (stale is null)
+            {
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Stopping enhanced stream {SessionId} for video {VideoId} (unused for {Seconds:0}s) to make room for a new one.",
+                stale.SessionId,
+                stale.VideoId,
+                (DateTime.UtcNow - stale.LastAccessUtc).TotalSeconds);
+            RemoveAndDisposeSession(stale.SessionId);
         }
     }
 
