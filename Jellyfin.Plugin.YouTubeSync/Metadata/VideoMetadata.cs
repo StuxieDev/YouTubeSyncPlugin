@@ -48,6 +48,12 @@ public sealed class VideoMetadata
     /// <summary>Gets or sets the runtime in seconds when available.</summary>
     public int? DurationSeconds { get; set; }
 
+    /// <summary>Gets or sets the width of YouTube's best video format, when known.</summary>
+    public int? Width { get; set; }
+
+    /// <summary>Gets or sets the height of YouTube's best video format, when known.</summary>
+    public int? Height { get; set; }
+
     /// <summary>
     /// Gets or sets the subtitle tracks YouTube offers for this video. Only set when the details were
     /// fetched from yt-dlp during this sync (caption URLs expire, so they are never cached); <c>null</c> otherwise.

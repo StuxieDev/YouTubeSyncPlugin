@@ -257,10 +257,25 @@ public class YtDlpService
             ChannelName = GetString(result, "channel"),
             PublishedUtc = ParsePublishedDate(result),
             DurationSeconds = durationSeconds,
-            SubtitleTracks = ParseSubtitleTracks(result["subtitles"], isAutomatic: false)
+            Width = GetPositiveInt(result["width"]),
+            Height = GetPositiveInt(result["height"]),
+            SubtitleTracks =ParseSubtitleTracks(result["subtitles"], isAutomatic: false)
                 .Concat(ParseSubtitleTracks(result["automatic_captions"], isAutomatic: true))
                 .ToList()
         };
+    }
+
+    private static int? GetPositiveInt(JsonNode? node)
+    {
+        try
+        {
+            var value = node?.GetValue<double>();
+            return value is > 0 ? (int)Math.Round(value.Value) : null;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

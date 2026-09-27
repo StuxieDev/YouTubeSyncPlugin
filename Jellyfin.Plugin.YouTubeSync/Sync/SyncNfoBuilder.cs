@@ -66,13 +66,18 @@ internal static class SyncNfoBuilder
         """;
     }
 
+    /// <summary>Enhanced playback scales video to at most this width, keeping the aspect ratio.</summary>
+    internal const int EnhancedMaxWidth = 1920;
+
     /// <summary>
-    /// Builds the runtime tags: whole minutes in <c>runtime</c>, plus exact seconds in the Kodi-standard
-    /// <c>fileinfo/streamdetails</c> block. Jellyfin ignores NFO runtimes for videos, so
-    /// <see cref="RuntimePostScanTask"/> applies the seconds after each library scan.
+    /// Builds the runtime tags: whole minutes in <c>runtime</c>, plus a Kodi-standard <c>fileinfo/streamdetails</c>
+    /// block with the exact duration and the stream Enhanced playback produces (H.264 at the video's size, capped
+    /// at 1080p width, and AAC stereo). Jellyfin never probes <c>.strm</c> files and ignores NFO runtimes for
+    /// videos, so <see cref="RuntimePostScanTask"/> applies these after each library scan.
     /// </summary>
-    private static string BuildRuntimeTags(int? durationSeconds)
+    private static string BuildRuntimeTags(VideoMetadata video)
     {
+        var durationSeconds = video.DurationSeconds;
         if (!durationSeconds.HasValue || durationSeconds.Value <= 0)
         {
             return string.Empty;
@@ -80,8 +85,37 @@ internal static class SyncNfoBuilder
 
         var seconds = durationSeconds.Value;
         var minutes = Math.Max(1, (int)Math.Round(seconds / 60d, MidpointRounding.AwayFromZero));
+        var size = string.Empty;
+        if (GetEnhancedOutputSize(video.Width, video.Height) is var (width, height))
+        {
+            size = $"<width>{width}</width><height>{height}</height>";
+        }
+
         return $"\n  <runtime>{minutes}</runtime>"
-            + $"\n  <fileinfo><streamdetails><video><durationinseconds>{seconds}</durationinseconds></video></streamdetails></fileinfo>";
+            + "\n  <fileinfo><streamdetails>"
+            + $"<video><codec>h264</codec>{size}<durationinseconds>{seconds}</durationinseconds></video>"
+            + "<audio><codec>aac</codec><channels>2</channels></audio>"
+            + "</streamdetails></fileinfo>";
+    }
+
+    /// <summary>
+    /// Returns the size Enhanced playback outputs for a source size: unchanged up to <see cref="EnhancedMaxWidth"/>
+    /// wide, otherwise scaled down to that width with an even height.
+    /// </summary>
+    internal static (int Width, int Height)? GetEnhancedOutputSize(int? width, int? height)
+    {
+        if (width is not > 0 || height is not > 0)
+        {
+            return null;
+        }
+
+        if (width.Value <= EnhancedMaxWidth)
+        {
+            return (width.Value, height.Value);
+        }
+
+        var scaledHeight = (int)Math.Round(height.Value * (double)EnhancedMaxWidth / width.Value / 2d) * 2;
+        return (EnhancedMaxWidth, Math.Max(2, scaledHeight));
     }
 
     public static string BuildEpisodeNfo(
@@ -98,7 +132,7 @@ internal static class SyncNfoBuilder
             : $"\n  <thumb>{Xml(thumbFileName)}</thumb>";
         var season = seasonNumber.HasValue ? $"\n  <season>{seasonNumber.Value}</season>" : string.Empty;
         var episode = episodeNumber.HasValue ? $"\n  <episode>{episodeNumber.Value}</episode>" : string.Empty;
-        var runtime = BuildRuntimeTags(video.DurationSeconds);
+        var runtime = BuildRuntimeTags(video);
         var studio = string.IsNullOrWhiteSpace(video.ChannelName) ? string.Empty : $"\n  <studio>{Xml(video.ChannelName)}</studio>";
 
         return $"""
@@ -118,7 +152,7 @@ internal static class SyncNfoBuilder
         var thumb = string.IsNullOrEmpty(thumbFileName)
             ? string.Empty
             : $"\n  <thumb>{Xml(thumbFileName)}</thumb>";
-        var runtime = BuildRuntimeTags(video.DurationSeconds);
+        var runtime = BuildRuntimeTags(video);
         var studio = string.IsNullOrWhiteSpace(video.ChannelName) ? string.Empty : $"\n  <studio>{Xml(video.ChannelName)}</studio>";
         var set = string.IsNullOrWhiteSpace(sourceName) ? string.Empty : $"\n  <set>{Xml(sourceName)}</set>";
 

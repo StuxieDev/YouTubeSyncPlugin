@@ -113,7 +113,9 @@ internal sealed class VideoMetadataCache
             ThumbnailUrl = cached.ThumbnailUrl,
             ChannelName = cached.ChannelName,
             PublishedUtc = cached.PublishedUtc,
-            DurationSeconds = cached.DurationSeconds
+            DurationSeconds = cached.DurationSeconds,
+            Width = cached.Width,
+            Height = cached.Height
         };
     }
 
@@ -132,7 +134,9 @@ internal sealed class VideoMetadataCache
                 ThumbnailUrl = cached.ThumbnailUrl,
                 ChannelName = cached.ChannelName,
                 PublishedUtc = cached.PublishedUtc,
-                DurationSeconds = cached.DurationSeconds
+                DurationSeconds = cached.DurationSeconds,
+                Width = cached.Width,
+                Height = cached.Height
             }
             : null;
     }
@@ -155,6 +159,8 @@ internal sealed class VideoMetadataCache
             ChannelName = metadata.ChannelName,
             PublishedUtc = metadata.PublishedUtc,
             DurationSeconds = metadata.DurationSeconds,
+            Width = metadata.Width,
+            Height = metadata.Height,
             FetchedUtc = utcNow,
             SubtitlesCheckedUtc = previous?.SubtitlesCheckedUtc
         };
@@ -240,6 +246,10 @@ internal sealed class VideoMetadataCache
         public DateTime? PublishedUtc { get; set; }
 
         public int? DurationSeconds { get; set; }
+
+        public int? Width { get; set; }
+
+        public int? Height { get; set; }
 
         public DateTime FetchedUtc { get; set; }
 

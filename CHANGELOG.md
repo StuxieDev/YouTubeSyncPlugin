@@ -4,6 +4,12 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.5
+
+### Fixed
+- Synced videos now have video and audio stream details in Jellyfin. Jellyfin never probes `.strm` files, so they had none, and apps that check an item's media streams before scheduling it treated them as unplayable. In NostalgiaTV, for example, a channel made of YouTube shows scheduled almost nothing and showed standby. After each library scan, videos without a probed video stream get an H.264 video stream at the size Enhanced playback outputs and an AAC stereo audio stream. Existing streams such as subtitles are kept, and videos Jellyfin has really probed are left alone.
+- NFOs now record the video codec, output size and audio in `fileinfo/streamdetails`. The size is taken from YouTube's best format, capped at 1920 wide as Enhanced playback does. Videos synced before this release use 1920×1080 until their details are next refreshed.
+
 ## v1.0.4
 
 ### Fixed
