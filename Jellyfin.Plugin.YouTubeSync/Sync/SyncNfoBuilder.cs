@@ -123,7 +123,8 @@ internal static class SyncNfoBuilder
         string sourceName,
         int? seasonNumber,
         int? episodeNumber,
-        string thumbFileName)
+        string thumbFileName,
+        string fanartPath = "")
     {
         var aired = BuildDateTag("aired", video.PublishedUtc);
         var premiered = BuildDateTag("premiered", video.PublishedUtc);
@@ -141,12 +142,12 @@ internal static class SyncNfoBuilder
           <title>{Xml(video.Title)}</title>
           <showtitle>{Xml(sourceName)}</showtitle>
           <plot>{Xml(video.Description)}</plot>
-                    <uniqueid type="youtube" default="true">{Xml(video.SyncId)}</uniqueid>{aired}{premiered}{season}{episode}{runtime}{studio}{thumb}
+                    <uniqueid type="youtube" default="true">{Xml(video.SyncId)}</uniqueid>{aired}{premiered}{season}{episode}{runtime}{studio}{thumb}{BuildFanartTag(fanartPath)}
         </episodedetails>
         """;
     }
 
-    public static string BuildMovieVideoNfo(VideoMetadata video, string sourceName, string thumbFileName)
+    public static string BuildMovieVideoNfo(VideoMetadata video, string sourceName, string thumbFileName, string fanartPath = "")
     {
         var premiered = BuildDateTag("premiered", video.PublishedUtc);
         var thumb = string.IsNullOrEmpty(thumbFileName)
@@ -161,9 +162,21 @@ internal static class SyncNfoBuilder
         <movie>
           <title>{Xml(video.Title)}</title>
           <plot>{Xml(video.Description)}</plot>
-                    <uniqueid type="youtube" default="true">{Xml(video.SyncId)}</uniqueid>{premiered}{runtime}{studio}{set}{thumb}
+                    <uniqueid type="youtube" default="true">{Xml(video.SyncId)}</uniqueid>{premiered}{runtime}{studio}{set}{thumb}{BuildFanartTag(fanartPath)}
         </movie>
         """;
+    }
+
+    /// <summary>
+    /// Builds a <c>fanart</c> tag that gives a video its own backdrop. Jellyfin reads no local backdrop files for
+    /// episodes, but it does load an absolute image path from the NFO; without one, the video's background falls
+    /// back to the show's.
+    /// </summary>
+    private static string BuildFanartTag(string fanartPath)
+    {
+        return string.IsNullOrWhiteSpace(fanartPath)
+            ? string.Empty
+            : $"\n  <fanart>\n    <thumb>{Xml(fanartPath)}</thumb>\n  </fanart>";
     }
 
     public static string BuildSeasonNfo(

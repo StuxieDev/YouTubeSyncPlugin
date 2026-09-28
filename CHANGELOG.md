@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.3.0
+
+### Added
+- Backdrops (the background image in Jellyfin). Each synced video's own thumbnail is now also its backdrop, set through a `fanart` entry in its NFO, because Jellyfin reads no local backdrop files for episodes. Each channel also gets a `backdrop` image from its full 2560x1440 channel art, or for a playlist its thumbnail. Before, YouTube shows and videos had no background at all. Existing videos pick this up on the next sync, with no extra YouTube requests.
+
 ## v1.2.1
 
 ### Fixed

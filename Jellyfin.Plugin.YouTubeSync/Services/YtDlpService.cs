@@ -456,6 +456,7 @@ public class YtDlpService
             Description = description,
             ThumbnailUrl = thumbnailUrl,
             PosterUrl = posterUrl,
+            BackdropUrl = GetSourceBackdropUrl(result, isPlaylist),
             Type = isPlaylist ? SourceType.Playlist : SourceType.Channel
         };
     }
@@ -704,6 +705,22 @@ public class YtDlpService
     {
         var banner = SelectThumbnailUrl(node?["thumbnails"]?.AsArray(), ThumbnailPreference.Banner);
         return string.IsNullOrWhiteSpace(banner) ? GetBestSourceAvatarUrl(node) : banner;
+    }
+
+    /// <summary>
+    /// Returns the channel's full channel art (yt-dlp's <c>banner_uncropped</c>, 2560x1440), which suits a
+    /// 16:9 backdrop, unlike the cropped banner strip. Playlists have no channel art, so their thumbnail is used.
+    /// </summary>
+    internal static string GetSourceBackdropUrl(JsonNode? node, bool isPlaylist)
+    {
+        var uncropped = node?["thumbnails"]?.AsArray()
+            .FirstOrDefault(t => string.Equals(GetString(t, "id"), "banner_uncropped", StringComparison.OrdinalIgnoreCase));
+        if (uncropped is not null && !string.IsNullOrWhiteSpace(GetString(uncropped, "url")))
+        {
+            return GetString(uncropped, "url");
+        }
+
+        return isPlaylist ? GetBestVideoThumbnailUrl(node) : string.Empty;
     }
 
     private static string SelectThumbnailUrl(JsonArray? thumbnails, ThumbnailPreference preference)

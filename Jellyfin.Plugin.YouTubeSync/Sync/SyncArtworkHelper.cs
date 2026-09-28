@@ -336,7 +336,8 @@ internal static class SyncArtworkHelper
 
     private static bool HasArtworkVariant(string directory, string baseName) => FindArtworkVariant(directory, baseName) is not null;
 
-    private static string? FindArtworkVariant(string directory, string baseName)
+    /// <summary>Returns the path of an existing artwork file named <paramref name="baseName"/>, or <c>null</c>.</summary>
+    public static string? FindArtworkVariant(string directory, string baseName)
     {
         foreach (var extension in ArtworkExtensions)
         {

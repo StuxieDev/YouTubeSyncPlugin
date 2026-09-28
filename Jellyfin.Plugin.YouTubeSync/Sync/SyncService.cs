@@ -90,6 +90,7 @@ public class SyncService
             ? sourceInfo?.ThumbnailUrl ?? string.Empty
             : source.ThumbnailUrl;
         var posterUrl = sourceInfo?.PosterUrl ?? thumbnailUrl;
+        var backdropUrl = sourceInfo?.BackdropUrl ?? string.Empty;
 
         var sourceDir = Path.Combine(config.LibraryBasePath, SyncSeasonLayout.SanitizeFileName(name));
 
@@ -162,6 +163,7 @@ public class SyncService
                 description,
                 thumbnailUrl,
                 posterUrl,
+                backdropUrl,
                 playlistSeasonDefinitions,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -526,18 +528,21 @@ public class SyncService
         var strmWritten = await WriteVideoShellAsync(video, videoDir, jellyfinBaseUrl, cancellationToken).ConfigureAwait(false);
         _logger.LogDebug(strmWritten ? "Updated {StrmPath}" : "Kept existing {StrmPath}", strmPath);
 
-        var nfo = sourceMode == SourceMode.Movies
-            ? SyncNfoBuilder.BuildMovieVideoNfo(video, sourceName, thumbFileName)
-            : SyncNfoBuilder.BuildEpisodeNfo(video, sourceName, seasonNumber, episodeNumber, string.Empty);
-        await WriteTextFileIfChangedAsync(nfoPath, nfo, cancellationToken).ConfigureAwait(false);
-
         // Jellyfin only picks up an episode's image when it is named after the video file ("<name>-thumb");
         // folder/poster images in the episode's folder are ignored for episodes.
+        var thumbBaseName = sourceMode == SourceMode.Movies ? "poster" : $"{safeName}-thumb";
         var artworkNames = sourceMode == SourceMode.Movies
             ? new[] { "folder", "poster" }
-            : new[] { "folder", "poster", $"{safeName}-thumb" };
+            : new[] { "folder", "poster", thumbBaseName };
         await SyncArtworkHelper.DownloadArtworkAsync(_logger, video.ThumbnailUrl, videoDir, artworkNames, cancellationToken)
             .ConfigureAwait(false);
+
+        // The video's own thumbnail doubles as its backdrop (see SyncNfoBuilder.BuildFanartTag).
+        var fanartPath = SyncArtworkHelper.FindArtworkVariant(videoDir, thumbBaseName) ?? string.Empty;
+        var nfo = sourceMode == SourceMode.Movies
+            ? SyncNfoBuilder.BuildMovieVideoNfo(video, sourceName, thumbFileName, fanartPath)
+            : SyncNfoBuilder.BuildEpisodeNfo(video, sourceName, seasonNumber, episodeNumber, string.Empty, fanartPath);
+        await WriteTextFileIfChangedAsync(nfoPath, nfo, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task WriteSourceMetadataAsync(
@@ -547,6 +552,7 @@ public class SyncService
         string description,
         string thumbnailUrl,
         string posterUrl,
+        string backdropUrl,
         IReadOnlyList<PlaylistSeasonDefinition> playlistSeasonDefinitions,
         CancellationToken cancellationToken)
     {
@@ -575,6 +581,9 @@ public class SyncService
 
         SyncArtworkHelper.AddArtworkTarget(artworkDownloads, posterOrThumbnailUrl, "poster");
         SyncArtworkHelper.AddArtworkTarget(artworkDownloads, posterOrThumbnailUrl, "banner");
+
+        // "backdrop" next to tvshow.nfo is the show's background in Jellyfin (and the fallback for its episodes).
+        SyncArtworkHelper.AddArtworkTarget(artworkDownloads, backdropUrl, "backdrop");
 
         foreach (var artworkDownload in artworkDownloads)
         {

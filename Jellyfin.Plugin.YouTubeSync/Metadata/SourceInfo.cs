@@ -19,4 +19,10 @@ public sealed class SourceInfo
     
     /// <summary>Gets or sets the URL of a wider banner or poster-style image when available.</summary>
     public string PosterUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a 16:9 backdrop image: the channel's full 2560x1440 channel art, or for a playlist its
+    /// thumbnail. Empty when the channel has no channel art.
+    /// </summary>
+    public string BackdropUrl { get; set; } = string.Empty;
 }
