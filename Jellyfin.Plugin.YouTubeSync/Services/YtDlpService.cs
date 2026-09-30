@@ -449,6 +449,31 @@ public class YtDlpService
         var extractorKey = result["extractor_key"]?.GetValue<string>() ?? string.Empty;
         var isPlaylist = url.Contains("playlist?list=", StringComparison.OrdinalIgnoreCase)
                          || extractorKey.Equals("YoutubePlaylist", StringComparison.OrdinalIgnoreCase);
+        var backdropUrl = GetSourceBackdropUrl(result, isPlaylist);
+
+        // A playlist only has a small video still (336x188) as artwork. Use the owning channel's avatar and
+        // channel art instead, so the show looks like the channel it comes from.
+        if (isPlaylist)
+        {
+            var channelUrl = GetOwningChannelUrl(result);
+            if (!string.IsNullOrWhiteSpace(channelUrl))
+            {
+                var channel = await RunYtDlpJsonAsync(new[] { "--flat-playlist", "-J", "--playlist-end", "1", channelUrl }, cancellationToken)
+                    .ConfigureAwait(false);
+                var avatar = GetBestSourceAvatarUrl(channel);
+                if (!string.IsNullOrWhiteSpace(avatar))
+                {
+                    thumbnailUrl = avatar;
+                    posterUrl = GetBestSourcePosterUrl(channel);
+                }
+
+                var channelArt = GetSourceBackdropUrl(channel, isPlaylist: false);
+                if (!string.IsNullOrWhiteSpace(channelArt))
+                {
+                    backdropUrl = channelArt;
+                }
+            }
+        }
 
         return new SourceInfo
         {
@@ -456,9 +481,33 @@ public class YtDlpService
             Description = description,
             ThumbnailUrl = thumbnailUrl,
             PosterUrl = posterUrl,
-            BackdropUrl = GetSourceBackdropUrl(result, isPlaylist),
+            BackdropUrl = backdropUrl,
             Type = isPlaylist ? SourceType.Playlist : SourceType.Channel
         };
+    }
+
+    /// <summary>
+    /// Returns the URL of the channel that owns a playlist. Older playlists don't carry it at the top level, so
+    /// the first entry's channel is used as a fallback.
+    /// </summary>
+    internal static string GetOwningChannelUrl(JsonNode? playlist)
+    {
+        var candidates = new[] { playlist, playlist?["entries"]?.AsArray().FirstOrDefault() };
+        foreach (var node in candidates)
+        {
+            var url = GetString(node, "channel_url");
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                url = GetString(node, "uploader_url");
+            }
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                return url;
+            }
+        }
+
+        return string.Empty;
     }
 
     private async Task<JsonNode?> RunYtDlpJsonAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)

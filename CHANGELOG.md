@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.3.1
+
+### Fixed
+- Playlist sources now use their channel's artwork. A playlist only offers a small video still (336x188), so shows synced from a playlist (for example a channel's series playlist) had a tiny, blurry poster and background instead of the channel's avatar and channel art. The plugin now looks up the channel that owns the playlist (from the playlist, or its first video for older playlists) and uses that channel's avatar, banner and 2560x1440 channel art. Artwork that's already on disk isn't replaced: delete a show's `folder`, `poster`, `banner` and `backdrop` images to fetch the new ones on the next sync.
+
 ## v1.3.0
 
 ### Added
