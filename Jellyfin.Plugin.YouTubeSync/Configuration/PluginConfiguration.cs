@@ -109,6 +109,13 @@ public class PluginConfiguration : BasePluginConfiguration
     public string AudioLanguage { get; set; } = "en";
 
     /// <summary>
+    /// Gets or sets the tallest YouTube HLS video to play: 1080 (default), 720 or 480. Jellyfin usually
+    /// transcodes these streams for TV-style clients, and 720p is less than half the work of 1080p - the
+    /// difference between keeping up and buffering on a small GPU, or with several streams at once.
+    /// </summary>
+    public int HlsMaxHeight { get; set; } = 1080;
+
+    /// <summary>
     /// Gets or sets the path to the ffmpeg executable used for managed transcoding.
     /// Defaults to "ffmpeg" and expects it to be available on PATH.
     /// </summary>

@@ -79,6 +79,15 @@
                 </div>
 
                 <div class="inputContainer">
+                    <select is="emby-select" id="HlsMaxHeight" label="YouTube HLS maximum resolution">
+                        <option value="1080">1080p</option>
+                        <option value="720">720p</option>
+                        <option value="480">480p</option>
+                    </select>
+                    <div class="fieldDescription">The tallest YouTube HLS stream to play. Jellyfin usually transcodes these for TV-style clients such as NostalgiaTV, and 720p is less than half the work of 1080p. Lower it if YouTube videos buffer, especially with several playing at once.</div>
+                </div>
+
+                <div class="inputContainer">
                     <input is="emby-input" type="text" id="AudioLanguage" label="Audio language" />
                     <div class="fieldDescription">The audio track to play, as a language code such as <code>en</code> (the default) or <code>de</code>. Many videos also carry dubbed tracks, including YouTube's automatic AI dubs; this picks yours when a video has it, and the video's original audio otherwise. A code also matches its regional variants, so <code>en</code> covers <code>en-US</code>. Leave it blank to always play the original audio.</div>
                 </div>

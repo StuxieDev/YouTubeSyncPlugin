@@ -214,15 +214,10 @@ public class YtDlpService
 
         static bool HasCodec(string codec) => !string.IsNullOrEmpty(codec) && codec != "none";
 
-        var video = hls
-            .Where(f => GetString(f, "vcodec").StartsWith("avc1", StringComparison.OrdinalIgnoreCase)
-                && GetPositiveInt(f["height"]) is > 0 and <= 1080)
-            .OrderByDescending(f => GetPositiveInt(f["height"]))
-            .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
-            .FirstOrDefault();
+        var video = PickHlsVideo(hls, HlsMaxHeight);
         if (video is null)
         {
-            _logger.LogInformation("YouTube offers no H.264 HLS video up to 1080p for {VideoId}.", videoId);
+            _logger.LogInformation("YouTube offers no H.264 HLS video for {VideoId}.", videoId);
             return null;
         }
 
@@ -264,6 +259,28 @@ public class YtDlpService
             audio is null ? null : GetString(audio, "url"),
             string.IsNullOrEmpty(audioCodecs) || audioCodecs == "none" ? "mp4a.40.2" : audioCodecs,
             audioBandwidth);
+    }
+
+    /// <summary>The "YouTube HLS maximum resolution" setting: 480, 720 or 1080 (anything else is 1080).</summary>
+    private static int HlsMaxHeight => Plugin.Instance?.Configuration.HlsMaxHeight is 480 or 720 ? Plugin.Instance.Configuration.HlsMaxHeight : 1080;
+
+    /// <summary>
+    /// Picks the H.264 HLS video to play: the tallest up to <paramref name="maxHeight"/>, then the highest
+    /// bitrate. If a video has nothing that small, the smallest it has up to 1080p.
+    /// </summary>
+    internal static JsonObject? PickHlsVideo(IEnumerable<JsonObject> hlsFormats, int maxHeight)
+    {
+        var avc = hlsFormats
+            .Where(f => GetString(f, "vcodec").StartsWith("avc1", StringComparison.OrdinalIgnoreCase)
+                && GetPositiveInt(f["height"]) is > 0 and <= 1080)
+            .ToList();
+        return avc.Where(f => GetPositiveInt(f["height"]) <= maxHeight)
+                .OrderByDescending(f => GetPositiveInt(f["height"]))
+                .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
+                .FirstOrDefault()
+            ?? avc.OrderBy(f => GetPositiveInt(f["height"]))
+                .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
+                .FirstOrDefault();
     }
 
     /// <summary>

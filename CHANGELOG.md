@@ -4,6 +4,11 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.5.0
+
+### Added
+- **A YouTube HLS maximum resolution setting** (Enhanced Playback): 1080p (the default, as before), 720p or 480p. Jellyfin usually transcodes YouTube's HLS streams for TV-style clients such as NostalgiaTV, and 720p is far less work. Measured with Quick Sync on an Intel UHD 630 (i5-9500T), one stream from a 1080p source encoded at 1.5× real time, so two at once fell behind and buffered; from 720p it encoded at 3.7×. Lower this if YouTube videos buffer.
+
 ## v1.4.0
 
 ### Added
