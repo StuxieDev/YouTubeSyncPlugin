@@ -214,7 +214,7 @@ public class YtDlpService
 
         static bool HasCodec(string codec) => !string.IsNullOrEmpty(codec) && codec != "none";
 
-        var video = PickHlsVideo(hls, HlsMaxHeight);
+        var video = PickHlsVideo(hls, HlsMaxHeight, AudioLanguage);
         if (video is null)
         {
             _logger.LogInformation("YouTube offers no H.264 HLS video for {VideoId}.", videoId);
@@ -248,7 +248,7 @@ public class YtDlpService
             videoId,
             height,
             videoCodecs,
-            audio is null ? " (muxed audio)" : $" + separate audio ({GetString(audio, "language")}, {GetString(audio, "format_note")})");
+            audio is null ? $" (muxed audio: {GetString(video, "language")}, {GetString(video, "format_note")})" : $" + separate audio ({GetString(audio, "language")}, {GetString(audio, "format_note")})");
 
         return new HlsPlaybackInput(
             GetString(video, "url"),
@@ -265,22 +265,33 @@ public class YtDlpService
     private static int HlsMaxHeight => Plugin.Instance?.Configuration.HlsMaxHeight is 480 or 720 ? Plugin.Instance.Configuration.HlsMaxHeight : 1080;
 
     /// <summary>
-    /// Picks the H.264 HLS video to play: the tallest up to <paramref name="maxHeight"/>, then the highest
-    /// bitrate. If a video has nothing that small, the smallest it has up to 1080p.
+    /// Picks the H.264 HLS video to play: the tallest up to <paramref name="maxHeight"/> (if a video has
+    /// nothing that small, the smallest it has up to 1080p), then by audio, then the highest bitrate.
+    /// Signed in (with cookies), YouTube offers only muxed HLS - one copy of each resolution per audio track,
+    /// dubs included, a few bytes apart in bitrate - so the audio has to be chosen here, the same way as
+    /// <see cref="PickAudioTrack"/>: a muxed copy in <paramref name="language"/> first, then a video-only
+    /// stream (whose audio PickAudioTrack chooses), then any other muxed copy, original track first.
     /// </summary>
-    internal static JsonObject? PickHlsVideo(IEnumerable<JsonObject> hlsFormats, int maxHeight)
+    internal static JsonObject? PickHlsVideo(IEnumerable<JsonObject> hlsFormats, int maxHeight, string language)
     {
+        static string Lower(JsonObject f, string key) => GetString(f, key).ToLowerInvariant();
+        bool IsMuxed(JsonObject f) => Lower(f, "acodec") is { Length: > 0 } and not "none";
+        int AudioRank(JsonObject f) => !IsMuxed(f) ? 1 : IsLanguage(GetString(f, "language"), language) ? 2 : 0;
+
         var avc = hlsFormats
             .Where(f => GetString(f, "vcodec").StartsWith("avc1", StringComparison.OrdinalIgnoreCase)
                 && GetPositiveInt(f["height"]) is > 0 and <= 1080)
             .ToList();
-        return avc.Where(f => GetPositiveInt(f["height"]) <= maxHeight)
-                .OrderByDescending(f => GetPositiveInt(f["height"]))
-                .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
-                .FirstOrDefault()
-            ?? avc.OrderBy(f => GetPositiveInt(f["height"]))
-                .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
-                .FirstOrDefault();
+        var fitting = avc.Where(f => GetPositiveInt(f["height"]) <= maxHeight).ToList();
+        var height = fitting.Count > 0
+            ? fitting.Max(f => GetPositiveInt(f["height"]))
+            : avc.Count > 0 ? avc.Min(f => GetPositiveInt(f["height"])) : null;
+        return avc.Where(f => GetPositiveInt(f["height"]) == height)
+            .OrderByDescending(AudioRank)
+            .ThenByDescending(f => GetInt(f["language_preference"]) >= 10 || Lower(f, "format_note").Contains("original", StringComparison.Ordinal))
+            .ThenBy(f => Lower(f, "format_note").Contains("descriptive", StringComparison.Ordinal))
+            .ThenByDescending(f => GetPositiveInt(f["tbr"]) ?? 0)
+            .FirstOrDefault();
     }
 
     /// <summary>

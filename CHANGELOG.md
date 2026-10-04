@@ -4,6 +4,12 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.5.1
+
+### Fixed
+- **Videos still played in another language when signed in.** With a cookies file, YouTube offers no separate HLS audio tracks. Each resolution comes as one muxed stream per audio track (the original, its English copy and any dubs), a few bytes apart in bitrate. v1.4.0's audio choice only covered separate audio tracks, so muxed streams were still chosen by bitrate, and a dub could win. Among muxed streams, the video choice now uses the same rules: the configured language, then the original track, never audio description, then bitrate.
+- The playback log names the language and track of a muxed stream too, so you can check which audio is playing.
+
 ## v1.5.0
 
 ### Added
