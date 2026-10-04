@@ -80,6 +80,8 @@ A one-off export (for example with a "Get cookies.txt" browser extension) slowly
 
 Playback first tries **YouTube's own HLS streams** (**Use YouTube's own HLS streams**, on by default). The plugin hands Jellyfin a small playlist pointing at YouTube's H.264 video (up to 1080p) and audio. These streams are complete and seekable, so playback can start anywhere in a video within seconds, which live-TV apps such as NostalgiaTV need when they tune in part-way through. Jellyfin's own transcoder does any conversion, so the plugin runs no ffmpeg. Videos without HLS streams fall back to the modes below.
 
+**Audio language** (default `en`) picks the audio track to play. Many videos also carry dubbed tracks, including YouTube's automatic AI dubs. The configured language plays when a video has it, and otherwise the video's original audio, never an audio-description track. When there's a choice, the higher-quality variant plays. A code also matches its regional variants (`en` covers `en-US`); leave it blank for the original audio.
+
 | Mode | What it does | Needs ffmpeg? |
 |---|---|---|
 | **Enhanced** (recommended) | Muxes YouTube's separate video and audio streams through a local ffmpeg process into HLS, up to 1080p. Falls back to Simple automatically if anything goes wrong. | Yes |

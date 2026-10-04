@@ -101,6 +101,14 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool UseYouTubeHls { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the audio language to play, e.g. <c>en</c> or <c>de</c>. YouTube can offer several audio
+    /// tracks per video (the original and dubs, its AI "dubbed-auto" ones included); this one is played when
+    /// it's there, otherwise the video's original audio. A code also matches its regional variants
+    /// (<c>en</c> matches <c>en-US</c>). Blank: always the original audio.
+    /// </summary>
+    public string AudioLanguage { get; set; } = "en";
+
+    /// <summary>
     /// Gets or sets the path to the ffmpeg executable used for managed transcoding.
     /// Defaults to "ffmpeg" and expects it to be available on PATH.
     /// </summary>

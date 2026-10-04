@@ -4,6 +4,20 @@ All notable changes to YouTubeSync are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.4.0
+
+### Added
+- **An Audio language setting** (Enhanced Playback, default `en`). Many YouTube videos now carry several audio tracks: the original plus dubs, including YouTube's automatic AI dubs ("dubbed-auto"). Playback uses the configured language when a video has it, and the video's original audio otherwise. A code also matches its regional variants, so `en` covers `en-US`. Leave it blank to always play the original audio.
+
+### Fixed
+- **Videos played in another language.** With YouTube's own HLS streams, the audio was chosen by bitrate alone. YouTube reports no bitrate for these tracks, so the first one listed won, and that was often a dub: for example a Hindi AI dub on Sr Pelo's videos, or the "ia" dub on Kurzgesagt's. The audio is now picked in this order:
+  1. the configured language
+  2. the original track
+  3. never audio description
+  4. the higher-quality variant
+- **Low-quality audio.** The same bitrate-only choice also picked YouTube's low variant (itag 233, ~48 kbps) over the high one (234, ~128 kbps), even when the language was right.
+- **Managed transcoding** (videos without HLS streams) asks yt-dlp for the configured language first, too.
+
 ## v1.3.1
 
 ### Fixed
