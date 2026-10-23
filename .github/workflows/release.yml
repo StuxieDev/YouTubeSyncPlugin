@@ -1,10 +1,11 @@
 name: Publish Release
 
-# Trigger on version tags like v1.0.0 or v1.2.3
+# Trigger on Date Version tags like v26.10.23 or v26.10.23-1 (https://datevers.ing)
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v[0-9][0-9].[0-9][0-9].[0-9][0-9]'
+      - 'v[0-9][0-9].[0-9][0-9].[0-9][0-9]-*'
 
 permissions:
   contents: write  # needed to create releases
@@ -22,13 +23,18 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          # tag = v1.2.3  →  TAG_VERSION = 1.2.3 (tags, releases, zip name)
-          #                →  JELLYFIN_VERSION = 1.2.3.0 (meta.json and manifest.json only)
+          # tag = v26.10.23    →  TAG_VERSION = 26.10.23 (tags, releases, zip name)
+          #                    →  JELLYFIN_VERSION = 26.10.23.0 (meta.json, manifest.json, assembly)
+          # tag = v26.10.23-1  →  TAG_VERSION = 26.10.23-1, JELLYFIN_VERSION = 26.10.23.1
           # Jellyfin's API always reports installed plugin versions with four parts and its plugin-image
           # lookup compares versions exactly, so a three-part meta.json version makes the banner 404.
+          # Assembly versions can't contain "-", so the build uses the four-part form too.
           TAG="${GITHUB_REF#refs/tags/v}"
+          DATE="${TAG%%-*}"
+          SAME_DAY=0
+          if [[ "$TAG" == *-* ]]; then SAME_DAY="${TAG#*-}"; fi
           echo "TAG_VERSION=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "JELLYFIN_VERSION=${TAG}.0" >> "$GITHUB_OUTPUT"
+          echo "JELLYFIN_VERSION=${DATE}.${SAME_DAY}" >> "$GITHUB_OUTPUT"
           echo "ZIP_NAME=jellyfin-youtubesync_${TAG}.zip" >> "$GITHUB_OUTPUT"
 
       # ── 3. Patch the version in meta.json before building ──────────────────
@@ -59,9 +65,9 @@ jobs:
           dotnet publish Jellyfin.Plugin.YouTubeSync/Jellyfin.Plugin.YouTubeSync.csproj \
             -c Release \
             --no-self-contained \
-            -p:Version=${{ steps.version.outputs.TAG_VERSION }} \
-            -p:AssemblyVersion=${{ steps.version.outputs.TAG_VERSION }} \
-            -p:FileVersion=${{ steps.version.outputs.TAG_VERSION }} \
+            -p:Version=${{ steps.version.outputs.JELLYFIN_VERSION }} \
+            -p:AssemblyVersion=${{ steps.version.outputs.JELLYFIN_VERSION }} \
+            -p:FileVersion=${{ steps.version.outputs.JELLYFIN_VERSION }} \
             -p:InformationalVersion=${{ steps.version.outputs.TAG_VERSION }} \
             -o publish/
 

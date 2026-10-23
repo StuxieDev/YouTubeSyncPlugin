@@ -1,8 +1,14 @@
 # Changelog
 
 All notable changes to YouTubeSync are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and since v26.10.23 this
+project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC release date, with
+`-1`, `-2`… for later releases the same day); earlier releases used Semantic Versioning.
+
+## v26.10.23
+
+### Changed
+- Versions now follow [Date Versioning](https://datevers.ing): the UTC release date as `YY.MM.DD`, with `-1`, `-2`… for later releases the same day. Jellyfin shows this release as `26.10.23.0` and treats it as an update from v1.5.1, so nothing needs reinstalling. `commit.sh`/`commit.bat` now refuse to tag anything that isn't a real, non-future Date Version.
 
 ## v1.5.1
 

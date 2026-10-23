@@ -36,14 +36,14 @@ Every user-facing change goes into `CHANGELOG.md` under the upcoming version. Us
 
 ## Releasing
 
-Versions follow [semantic versioning](https://semver.org/). To release:
+Versions follow [Date Versioning](https://datevers.ing): the UTC release date as `YY.MM.DD`, plus `-1`, `-2`… for later releases the same UTC day, and never a future date. To release:
 
-1. Finish the `## vX.Y.Z` section in `CHANGELOG.md`. The release workflow copies it into the plugin's changelog in Jellyfin.
-2. Put the new version in `VERSION.md` as `X.Y.Z`, and in the `version` field of `Jellyfin.Plugin.YouTubeSync/meta.json` as `X.Y.Z.0` (the release workflow sets this anyway).
+1. Finish the `## vYY.MM.DD` section in `CHANGELOG.md`. The release workflow copies it into the plugin's changelog in Jellyfin.
+2. Put the new version in `VERSION.md` as `YY.MM.DD` (or `YY.MM.DD-N`), and in the `version` field of `Jellyfin.Plugin.YouTubeSync/meta.json` as `YY.MM.DD.0` (or `YY.MM.DD.N`). The release workflow sets `meta.json` anyway.
 3. Update `README.md` if anything user-facing changed.
-4. Run `./commit.sh` (or `commit.bat` on Windows). It commits everything and creates the tag `vX.Y.Z` from `VERSION.md`.
+4. Run `./commit.sh` (or `commit.bat` on Windows). It checks `VERSION.md` holds a real, non-future Date Version, commits everything and creates the tag `vYY.MM.DD` from it.
 5. Push with `git push origin main --tags`.
 
 Pushing the tag runs `.github/workflows/release.yml`. It builds the plugin and publishes a GitHub Release containing the plugin zip and the repository `manifest.json`. That manifest combines the plugin details in `manifest.template.json` with the version list from the previous release, so Jellyfin always reads it from `releases/latest/download/manifest.json`. Nothing is committed back to the repo.
 
-**Why `X.Y.Z.0` in Jellyfin's files:** tags, releases, `VERSION.md` and the changelog use plain `X.Y.Z`. Jellyfin's API always reports installed plugin versions with four parts, and its plugin-image endpoint matches versions exactly, so `meta.json` and the manifest must use `X.Y.Z.0` or the plugin's banner won't load.
+**Why four parts in Jellyfin's files:** tags, releases, `VERSION.md` and the changelog use the Date Version (`26.10.23`, `26.10.23-1`). Jellyfin's API always reports installed plugin versions with four parts, and its plugin-image endpoint matches versions exactly, so `meta.json` and the manifest use `26.10.23.0` (or `26.10.23.1` for `-1`), or the plugin's banner won't load. .NET assembly versions can't contain `-`, so the build uses the four-part form as well.
