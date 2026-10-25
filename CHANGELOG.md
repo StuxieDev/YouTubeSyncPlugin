@@ -1,27 +1,47 @@
 # Changelog
 
 All notable changes to YouTubeSync are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and since v26.10.23 this
-project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC release date, with
-`-1`, `-2`… for later releases the same day); earlier releases used Semantic Versioning.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The plugin is pre-stable, so it uses
+[Semantic Versioning](https://semver.org) on `0.x.y` for now. Its first stable release will be its
+first [Date Versioning](https://datevers.ing) release (`YY.MM.DD`, the UTC release date, with `-1`,
+`-2`… for later releases the same day), and every release after that will be a Date Version too.
+There will be no v1.0.0. Jellyfin shows each version with a fourth part: `0.7.0` is `0.7.0.0`.
+Releases before v0.7.0 were first published with other numbers; each says which.
 
-## v26.10.23
+## v0.7.0
+
+### Added
+- `tests/run.sh` checks `VERSION.md`, the newest changelog heading, the version in `meta.json`, and the versioning rules below. The release workflow runs it before building.
+
+### Changed
+- The plugin is pre-stable, so it's versioned with SemVer `0.x.y` until its first stable release, which will be its first [Date Versioning](https://datevers.ing) release (there will be no v1.0.0). The earlier releases have been relabelled: each 1.x release moved down a major version and up a minor one (v1.0.0–v1.0.8 are now v0.1.0–v0.1.8, v1.1.x is v0.2.x, v1.2.x is v0.3.x, v1.3.x is v0.4.x, v1.4.0 is v0.5.0, v1.5.x is v0.6.x), and v26.10.23 is now v0.6.2. Their GitHub releases and the plugin repository now use the new numbers, with each zip rebuilt from its tag to carry its new version. `commit.sh` / `commit.bat` and the release workflow accept `0.x.y` versions as well as Date Versions, and refuse `0.x.y` once a Date Version has been released.
+- In Jellyfin this release is version `0.7.0.0`. If you installed v26.10.23 (shown as `26.10.23.0`) or a 1.x release, Jellyfin sees that as the newer version and won't offer this one as an update: uninstall the plugin, restart, and install it again from the catalogue. Your settings are kept.
+
+## v0.6.2
+
+_Released 2026-10-23 as v26.10.23._
 
 ### Changed
 - Versions now follow [Date Versioning](https://datevers.ing): the UTC release date as `YY.MM.DD`, with `-1`, `-2`… for later releases the same day. Jellyfin shows this release as `26.10.23.0` and treats it as an update from v1.5.1, so nothing needs reinstalling. `commit.sh`/`commit.bat` now refuse to tag anything that isn't a real, non-future Date Version.
 
-## v1.5.1
+## v0.6.1
+
+_Released 2026-10-04 as v1.5.1._
 
 ### Fixed
 - **Videos still played in another language when signed in.** With a cookies file, YouTube offers no separate HLS audio tracks. Each resolution comes as one muxed stream per audio track (the original, its English copy and any dubs), a few bytes apart in bitrate. v1.4.0's audio choice only covered separate audio tracks, so muxed streams were still chosen by bitrate, and a dub could win. Among muxed streams, the video choice now uses the same rules: the configured language, then the original track, never audio description, then bitrate.
 - The playback log names the language and track of a muxed stream too, so you can check which audio is playing.
 
-## v1.5.0
+## v0.6.0
+
+_Released 2026-10-04 as v1.5.0._
 
 ### Added
 - **A YouTube HLS maximum resolution setting** (Enhanced Playback): 1080p (the default, as before), 720p or 480p. Jellyfin usually transcodes YouTube's HLS streams for TV-style clients such as NostalgiaTV, and 720p is far less work. Measured with Quick Sync on an Intel UHD 630 (i5-9500T), one stream from a 1080p source encoded at 1.5× real time, so two at once fell behind and buffered; from 720p it encoded at 3.7×. Lower this if YouTube videos buffer.
 
-## v1.4.0
+## v0.5.0
+
+_Released 2026-10-04 as v1.4.0._
 
 ### Added
 - **An Audio language setting** (Enhanced Playback, default `en`). Many YouTube videos now carry several audio tracks: the original plus dubs, including YouTube's automatic AI dubs ("dubbed-auto"). Playback uses the configured language when a video has it, and the video's original audio otherwise. A code also matches its regional variants, so `en` covers `en-US`. Leave it blank to always play the original audio.
@@ -35,22 +55,30 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 - **Low-quality audio.** The same bitrate-only choice also picked YouTube's low variant (itag 233, ~48 kbps) over the high one (234, ~128 kbps), even when the language was right.
 - **Managed transcoding** (videos without HLS streams) asks yt-dlp for the configured language first, too.
 
-## v1.3.1
+## v0.4.1
+
+_Released 2026-09-30 as v1.3.1._
 
 ### Fixed
 - Playlist sources now use their channel's artwork. A playlist only offers a small video still (336x188), so shows synced from a playlist (for example a channel's series playlist) had a tiny, blurry poster and background instead of the channel's avatar and channel art. The plugin now looks up the channel that owns the playlist (from the playlist, or its first video for older playlists) and uses that channel's avatar, banner and 2560x1440 channel art. Artwork that's already on disk isn't replaced: delete a show's `folder`, `poster`, `banner` and `backdrop` images to fetch the new ones on the next sync.
 
-## v1.3.0
+## v0.4.0
+
+_Released 2026-09-28 as v1.3.0._
 
 ### Added
 - Backdrops (the background image in Jellyfin). Each synced video's own thumbnail is now also its backdrop, set through a `fanart` entry in its NFO, because Jellyfin reads no local backdrop files for episodes. Each channel also gets a `backdrop` image from its full 2560x1440 channel art, or for a playlist its thumbnail. Before, YouTube shows and videos had no background at all. Existing videos pick this up on the next sync, with no extra YouTube requests.
 
-## v1.2.1
+## v0.3.1
+
+_Released 2026-09-27 as v1.2.1._
 
 ### Fixed
 - With a cookies file set, videos no longer lose YouTube's own HLS playback. Signed in, yt-dlp's default YouTube clients return no HLS formats, so every video fell back to a managed transcode (slower to start, and harder to seek). The HLS lookup now also asks the `web_safari` client, which still offers H.264 HLS up to 1080p when signed in, including for age-restricted videos.
 
-## v1.2.0
+## v0.3.0
+
+_Released 2026-09-27 as v1.2.0._
 
 ### Added
 - `scripts/youtube-cookies.sh` keeps the **YouTube cookies file** fresh on its own. Sign in to YouTube once in a dedicated Firefox profile (`youtube-cookies.sh login`), and a schedule (`youtube-cookies.sh install`, every 6 hours by default) keeps that session alive in a headless Firefox. It then exports the cookies, checks they're signed in and work, and swaps the file in. If a refresh fails, the old file is kept. No more exporting `cookies.txt` by hand.
@@ -61,14 +89,18 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 ### Fixed
 - Synced episodes now have thumbnails in Jellyfin. Jellyfin only picks up an episode's image when it's named after the video file (`<video>-thumb`), so the `poster` and `folder` images next to each episode were ignored and every series episode showed no picture. The thumbnail is now also saved as `<video>-thumb`, copied from the existing poster so no extra downloads are needed. Episode NFOs no longer point at `poster.webp`, which Jellyfin logged as "not a valid URL or file path".
 
-## v1.1.1
+## v0.2.1
+
+_Released 2026-09-27 as v1.1.1._
 
 ### Fixed
 - Channels synced by playlist no longer lose videos when a playlist can't be listed. Before, a failed or rate-limited playlist request left that playlist's videos out, and the sync then deleted them. Playlists are now listed with the **Pause between video lookups** delay between them, listing stops while YouTube is rate-limiting, and nothing is removed from a sync where any playlist couldn't be listed.
 - A video that moves to a new folder (a changed title, or switching a channel between year and playlist seasons) keeps its subtitles and artwork: they're copied from the old folder, and renamed if the title changed. Before, cached videos lost their subtitles when their folder moved.
 - A cached video whose folder is recreated (for example after widening a date range) gets its subtitles again on the next sync, instead of never.
 
-## v1.1.0
+## v0.2.0
+
+_Released 2026-09-27 as v1.1.0._
 
 ### Added
 - Per-source publish date range: **Only videos published from** and **Only videos published until** (both optional, inclusive) on each channel or playlist.
@@ -79,17 +111,23 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 ### Fixed
 - Editing a channel or playlist no longer drops fields the form doesn't show, such as a custom thumbnail URL.
 
-## v1.0.8
+## v0.1.8
+
+_Released 2026-09-27 as v1.0.8._
 
 ### Added
 - A **Burn in subtitles for these clients** setting (default `nostalgiatv-docker`). Since Jellyfin 12, a video stream request that selects a subtitle but doesn't say how to deliver it gets `External` delivery, meaning the player must load the subtitle file itself. Players that only play the video, such as the NostalgiaTV pseudo-TV app, then showed no subtitles for any video. For the listed device IDs, the plugin adds `SubtitleMethod=Encode` to those requests so Jellyfin burns the chosen subtitles into the picture. This applies to every video on the server, and other clients are unaffected. Leave the setting empty to turn it off.
 
-## v1.0.7
+## v0.1.7
+
+_Released 2026-09-27 as v1.0.7._
 
 ### Fixed
 - Heavy buffering when a client asked for "original" quality. Synced videos' stream details had no bitrate, so Jellyfin re-encoded every YouTube stream at the client's maximum (40 Mbit/s for NostalgiaTV), about ten times YouTube's own bitrate. The details now include a typical YouTube bitrate for the resolution (for example 6 Mbit/s at 1080p), the H.264 level and BT.709 colour. With these, Jellyfin copies the video untouched when the client supports H.264, so there's no GPU encode and a fraction of the bandwidth, and caps any transcode it still needs at that bitrate. Stream details written by earlier versions are upgraded on the next library scan.
 
-## v1.0.6
+## v0.1.6
+
+_Released 2026-09-27 as v1.0.6._
 
 ### Added
 - Playback now uses YouTube's own HLS streams first (new **Use YouTube's own HLS streams** setting, on by default). The resolve URL points Jellyfin at a small master playlist listing YouTube's H.264 video (up to 1080p) and its audio. These playlists are complete and seekable, so playback starts anywhere in a video within seconds. The plugin runs no ffmpeg for them, and the result is cached per video until shortly before YouTube's links expire. Videos without HLS streams fall back to Enhanced or Simple mode.
@@ -97,19 +135,25 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 ### Fixed
 - Live-TV apps such as NostalgiaTV could stay on standby or buffer forever when tuning into a YouTube programme part-way through. Enhanced mode always transcodes from 0:00 and publishes a still-growing playlist, so Jellyfin had to wait for the transcode to reach the tune-in point. It restarted and retried every few seconds meanwhile. YouTube's HLS streams are seekable, so this no longer happens.
 
-## v1.0.5
+## v0.1.5
+
+_Released 2026-09-27 as v1.0.5._
 
 ### Fixed
 - Synced videos now have video and audio stream details in Jellyfin. Jellyfin never probes `.strm` files, so they had none, and apps that check an item's media streams before scheduling it treated them as unplayable. In NostalgiaTV, for example, a channel made of YouTube shows scheduled almost nothing and showed standby. After each library scan, videos without a probed video stream get an H.264 video stream at the size Enhanced playback outputs and an AAC stereo audio stream. Existing streams such as subtitles are kept, and videos Jellyfin has really probed are left alone.
 - NFOs now record the video codec, output size and audio in `fileinfo/streamdetails`. The size is taken from YouTube's best format, capped at 1920 wide as Enhanced playback does. Videos synced before this release use 1920×1080 until their details are next refreshed.
 
-## v1.0.4
+## v0.1.4
+
+_Released 2026-09-27 as v1.0.4._
 
 ### Fixed
 - Enhanced-mode streams that nobody is watching any more no longer block new ones. When the **Concurrent enhanced streams** limit is reached, the least recently used stream that no player has fetched from for 15 seconds is stopped to make room. Before, an abandoned stream (for example after changing channel in a pseudo-TV app) held its slot for up to 2 minutes, and new videos fell back to Simple mode, which usually fails.
 - Streams whose ffmpeg has already finished no longer count against the limit.
 
-## v1.0.3
+## v0.1.3
+
+_Released 2026-09-26 as v1.0.3._
 
 ### Changed
 - When a sync finishes, it queues a Jellyfin library scan. Jellyfin's file watcher adds new videos straight away, but runtimes and removals are only applied by a full scan. Without one, new videos had no length, and apps like pseudo-TV schedulers didn't see them until Jellyfin's own scan ran.
@@ -117,12 +161,16 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 ### Fixed
 - Subtitles are saved right after each video is looked up, instead of after the whole channel. YouTube's caption links expire after about 7 hours, which a large channel's lookup phase can outlast, so its first videos could miss their subtitles.
 
-## v1.0.2
+## v0.1.2
+
+_Released 2026-09-26 as v1.0.2._
 
 ### Added
 - An **Extra yt-dlp arguments** setting, added to every yt-dlp call. Use it to load yt-dlp plugins without touching the server's yt-dlp install, for example `--plugin-dirs /path/to/yt-dlp-plugins` for a PO-token provider such as `bgutil-ytdlp-pot-provider`. That avoids most of YouTube's "confirm you're not a bot" blocks without cookies. The README explains the setup.
 
-## v1.0.1
+## v0.1.1
+
+_Released 2026-09-26 as v1.0.1._
 
 ### Added
 - **YouTube subtitles.** Each video's subtitles are saved next to it as `<video>.<language>.srt`, and Jellyfin lists them as external subtitle tracks. New settings: **Download subtitles**, **Subtitle languages** (default `en`, which also matches regional variants like `en-GB`) and **Use auto-generated captions** (used when a video has no uploaded subtitles in a language). Caption links come with each video's details, so this adds no extra YouTube requests.
@@ -140,7 +188,9 @@ project uses [Date Versioning](https://datevers.ing) (`YY.MM.DD`, the UTC releas
 - **Syncs no longer delete videos when YouTube rate-limits the server.** Before, every video whose details couldn't be fetched was dropped, and its folder was deleted at the end of the sync. A large channel could lose most of its videos during an HTTP 429 / "confirm you're not a bot" block. Now videos that are still listed keep their existing files. When YouTube starts blocking, the sync stops making requests for 30 minutes and logs a warning, so playback, which uses the same IP, can recover.
 - A channel listing that comes back empty (usually a failed request) no longer deletes every video in that channel; the sync leaves its files alone.
 
-## v1.0.0
+## v0.1.0
+
+_Released 2026-09-26 as v1.0.0._
 
 First release of YouTubeSync as a standalone StuxieDev project, for Jellyfin 12.x. It is based on [jellyfin-youtube-plugin](https://github.com/kingschnulli/jellyfin-youtube-plugin) by kingschnulli.
 

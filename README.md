@@ -20,7 +20,7 @@ Then install **YouTubeSync** from the plugin catalogue and restart Jellyfin.
 
 ### Requirements
 
-- **Jellyfin 12.x** (12.0 or newer). Jellyfin 10.11 is no longer supported; the repository only lists v1.0.0 and later.
+- **Jellyfin 12.x** (12.0 or newer). Jellyfin 10.11 is no longer supported; the repository only lists v0.1.0 (first published as v1.0.0) and later.
 - **yt-dlp** available on PATH (or configured in plugin settings), plus a JavaScript runtime such as [Deno](https://deno.com) so yt-dlp can solve YouTube's player challenges. See [`local-testing/Dockerfile`](local-testing/Dockerfile) for a working setup.
 - **ffmpeg** for Enhanced playback mode (recommended, see below). Jellyfin's bundled `jellyfin-ffmpeg` works.
 
@@ -111,6 +111,12 @@ Copy the resulting DLL and `meta.json` into a `YouTubeSync` folder in your Jelly
 ## Releasing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: update `CHANGELOG.md`, bump `VERSION.md`, run `commit.sh` / `commit.bat`, then push the tag. The release workflow builds the plugin and publishes a GitHub Release with the plugin zip and the repository `manifest.json` Jellyfin reads.
+
+## Versioning
+
+The plugin is pre-stable, so it uses [Semantic Versioning](https://semver.org) on `0.x.y` (tags `v0.x.y`) for now. Its first stable release will be its first [Date Versioning](https://datevers.ing) release, tagged with the UTC release date as `vYY.MM.DD` (plus `-1`, `-2`… for later releases the same day), and every release after it will be a Date Version too. There will be no v1.0.0. Jellyfin shows versions with a fourth part, so `0.7.0` appears as `0.7.0.0`. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+
+The releases before v0.7.0 were first published as v1.0.0 to v26.10.23, and are now v0.1.0 to v0.6.2 (the changelog lists each one's old number). If you installed one of those, Jellyfin sees its old number as newer and won't offer the `0.x` releases as updates: uninstall the plugin, restart, and install it again from the catalogue. Your settings are kept.
 
 ## Credits
 
