@@ -8,6 +8,15 @@ first [Date Versioning](https://datevers.ing) release (`YY.MM.DD`, the UTC relea
 There will be no v1.0.0. Jellyfin shows each version with a fourth part: `0.7.0` is `0.7.0.0`.
 Releases before v0.7.0 were first published with other numbers; each says which.
 
+## v0.8.0
+
+### Changed
+- **A `test` → `staging` → `main` workflow.** Work and releases happen on `test`; changes go live in two steps, through pull requests: `test` → `staging`, then `staging` → `main`. Nothing is pushed to `staging` or `main` directly, and GitHub protects both. CONTRIBUTING.md has a new "Branches and going live" section, and the README's Versioning section says how releases move.
+- **A release is published when it reaches `main`**, not when its tag is pushed. `.github/workflows/release.yml` now runs on merges into `main`: if `VERSION.md`'s version has no GitHub Release yet, it builds that version's tag and publishes it, the same way as before.
+- **`commit.sh` and `commit.bat` refuse to run on `staging` or `main`**, since releases are made on `test`. After tagging, they print the push command and the two `gh pr create` commands for going live; they used to say to push `main`.
+
+The plugin itself is unchanged.
+
 ## v0.7.0
 
 ### Added
