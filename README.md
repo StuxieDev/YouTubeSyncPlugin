@@ -118,6 +118,8 @@ The plugin is pre-stable, so it uses [Semantic Versioning](https://semver.org) o
 
 The releases before v0.7.0 were first published as v1.0.0 to v26.10.23, and are now v0.1.0 to v0.6.2 (the changelog lists each one's old number). If you installed one of those, Jellyfin sees its old number as newer and won't offer the `0.x` releases as updates: uninstall the plugin, restart, and install it again from the catalogue. Your settings are kept.
 
+Work and releases happen on the `test` branch. Changes reach `staging` and then `main` (live) only through pull requests: `test` → `staging` → `main`. A release is published to Jellyfin once it reaches `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the release steps.
+
 ## Credits
 
 Based on [jellyfin-youtube-plugin](https://github.com/kingschnulli/jellyfin-youtube-plugin) by kingschnulli. Maintained by [StuxieDev](https://github.com/StuxieDev) as a standalone project, ported to Jellyfin 12.
